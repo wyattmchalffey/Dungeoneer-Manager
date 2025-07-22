@@ -565,6 +565,9 @@ const SKILL_CATEGORIES = {
     combat_buff: 'Combat - Buff',
     combat_summon: 'Combat - Summon',
     combat_hybrid: 'Combat - Hybrid',
+    combat_enchantment: 'Combat - Enchantment',
+    combat_mobility: 'Combat - Mobility',
+    combat_vampiric: 'Combat - Vampiric',
     support_healing: 'Support - Healing',
     support_buff: 'Support - Buff',
     support_defensive: 'Support - Defensive',
@@ -609,4 +612,4 @@ if (typeof module !== 'undefined' && module.exports) {
         MAGIC_SCHOOLS, 
         SKILL_RARITIES 
     };
-};
+}
