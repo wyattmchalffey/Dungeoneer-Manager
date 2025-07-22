@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dungeon Lords Manager</title>
+    
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="css/mobile.css">
+    
+    <!-- Favicon -->
+    <link rel="icon" href="assets/icons/favicon.ico">
+</head>
+<body>
+    <div class="container">
+        <!-- Header Section -->
+        <div class="header">
+            <h1>🏰 Dungeon Lords Manager</h1>
+            <p>Prepare your party and conquer the depths!</p>
+        </div>
+
+        <!-- Resource Display -->
+        <div class="resource-bar" id="resourceBar"></div>
+
+        <!-- Character Selection Section -->
+        <div class="game-section" id="characterSelectionSection">
+            <h2>📋 Character Selection</h2>
+            <p>Choose 4 characters for your party:</p>
+            <div class="grid grid-auto" id="characterGrid"></div>
+            <button class="btn" onclick="GameManager.confirmParty()" id="confirmPartyBtn" disabled>
+                Confirm Party
+            </button>
+        </div>
+
+        <!-- Current Party Display -->
+        <div class="game-section" id="partySection">
+            <h2>⚔️ Current Party</h2>
+            <div class="grid grid-auto" id="partyDisplay"></div>
+        </div>
+
+        <!-- Actions Section -->
+        <div class="game-section hidden" id="actionsSection">
+            <h2>🎯 Actions</h2>
+            <div class="grid grid-2">
+                <button class="btn" onclick="ActionManager.trainParty()">🎓 Train Party</button>
+                <button class="btn" onclick="ActionManager.exploreDungeon()">🗡️ Explore Dungeon</button>
+                <button class="btn" onclick="ActionManager.rest()">💤 Rest & Recover</button>
+                <button class="btn" onclick="ActionManager.buyEquipment()">🛡️ Buy Equipment</button>
+            </div>
+            <button class="btn btn-danger" onclick="ActionManager.attemptDemonLord()" id="demonLordBtn">
+                👹 Attempt Demon Lord's Dungeon
+            </button>
+        </div>
+
+        <!-- Combat Section -->
+        <div class="game-section hidden" id="combatSection">
+            <h2>⚔️ Combat Log</h2>
+            <div class="combat-log" id="combatLog"></div>
+            <button class="btn hidden" onclick="CombatManager.continue()" id="continueBtn">
+                Continue
+            </button>
+        </div>
+
+        <!-- Results Section -->
+        <div class="game-section hidden" id="resultsSection">
+            <h2>📊 Results</h2>
+            <div id="resultsContent"></div>
+            <button class="btn" onclick="GameManager.nextTurn()">Next Turn</button>
+        </div>
+
+        <!-- Loading Screen -->
+        <div id="loadingScreen" class="loading-screen">
+            <div class="loading-spinner"></div>
+            <p>Loading Dungeon Lords Manager...</p>
+            <div class="loading-details">
+                <small>Loading game systems and data...</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Utilities (Load First) -->
+    <script src="js/utils/constants.js"></script>
+    <script src="js/utils/helpers.js"></script>
+    <script src="js/utils/validation.js"></script>
+
+    <!-- Game Data (Load Before Core Systems) -->
+    <script src="js/data/characters.js"></script>
+    <script src="js/data/skills.js"></script>
+    <script src="js/data/dungeons.js"></script>
+    <script src="js/data/gameData.js"></script>
+    
+    <!-- Core Systems (Load in Dependency Order) -->
+    <script src="js/core/gameState.js"></script>
+    <script src="js/core/character.js"></script>
+    <script src="js/core/combatManager.js"></script>
+    <script src="js/core/actionManager.js"></script>
+    <script src="js/core/uiManager.js"></script>
+    <script src="js/core/gameManager.js"></script>
+    
+    <!-- Main Application (Load Last) -->
+    <script src="js/main.js"></script>
+</body>
+</html>

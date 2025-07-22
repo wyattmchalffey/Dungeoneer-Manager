@@ -1,0 +1,343 @@
+/* ===========================================
+   MOBILE STYLES - Touch-friendly optimizations
+   =========================================== */
+
+/* Mobile Base Styles */
+@media (max-width: 767px) {
+    body {
+        font-size: 16px; /* Prevent zoom on iOS */
+        -webkit-text-size-adjust: 100%;
+        -ms-text-size-adjust: 100%;
+    }
+    
+    .container {
+        padding: 8px;
+    }
+    
+    .header {
+        padding: 15px 0;
+        margin-bottom: 15px;
+    }
+    
+    .header h1 {
+        font-size: 2rem;
+    }
+    
+    .header p {
+        font-size: 0.95rem;
+    }
+}
+
+/* Touch-Friendly Buttons */
+@media (max-width: 767px) {
+    .btn {
+        min-height: 48px; /* Apple's recommended touch target */
+        padding: 14px 20px;
+        margin: 8px 4px;
+        font-size: 16px; /* Prevent zoom */
+        border-radius: 8px;
+    }
+    
+    .character-card {
+        min-height: 180px;
+        padding: 12px;
+        margin-bottom: 10px;
+    }
+    
+    .party-member {
+        padding: 12px;
+        margin-bottom: 10px;
+    }
+}
+
+/* Mobile Grid Adjustments */
+@media (max-width: 767px) {
+    .grid-auto {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+    
+    .grid-2 {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+    
+    .resource-bar {
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .resource, .turn-counter {
+        width: 100%;
+        max-width: 200px;
+        min-width: unset;
+    }
+}
+
+/* Mobile Combat Log */
+@media (max-width: 767px) {
+    .combat-log {
+        height: 250px;
+        font-size: 12px;
+        padding: 10px;
+    }
+    
+    .log-entry {
+        padding: 3px 0;
+        line-height: 1.4;
+    }
+}
+
+/* Mobile Stats Display */
+@media (max-width: 767px) {
+    .stats-grid {
+        grid-template-columns: 1fr;
+        gap: 8px;
+        font-size: 14px;
+    }
+    
+    .stat-bar {
+        height: 10px;
+        margin-left: 8px;
+    }
+    
+    .skill {
+        font-size: 14px;
+        padding: 8px 12px;
+        margin: 6px 0;
+    }
+}
+
+/* Mobile Game Sections */
+@media (max-width: 767px) {
+    .game-section {
+        padding: 15px;
+        margin-bottom: 15px;
+        border-radius: 8px;
+    }
+    
+    .game-section h2 {
+        font-size: 1.3rem;
+        margin-bottom: 12px;
+    }
+}
+
+/* Touch Feedback Animations */
+@media (hover: none) and (pointer: coarse) {
+    .btn:active {
+        transform: scale(0.95);
+        transition: transform 0.1s;
+    }
+    
+    .character-card:active {
+        transform: scale(0.98);
+        transition: transform 0.1s;
+    }
+    
+    .party-member:active {
+        transform: scale(0.99);
+        transition: transform 0.1s;
+    }
+}
+
+/* Prevent Text Selection on Touch */
+@media (max-width: 767px) {
+    .btn, .character-card, .party-member {
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        user-select: none;
+        -webkit-tap-highlight-color: transparent;
+    }
+}
+
+/* iOS Specific Styles */
+@supports (-webkit-touch-callout: none) {
+    body {
+        -webkit-touch-callout: none;
+        -webkit-tap-highlight-color: transparent;
+    }
+    
+    .btn {
+        -webkit-appearance: none;
+        -webkit-border-radius: 6px;
+    }
+}
+
+/* Android Specific Styles */
+@media screen and (-webkit-device-pixel-ratio: 2) and (max-width: 767px) {
+    .character-card, .party-member {
+        border-width: 1px; /* Thinner borders for high DPI */
+    }
+}
+
+/* Portrait vs Landscape Optimizations */
+@media (max-width: 767px) and (orientation: portrait) {
+    .grid-2 {
+        grid-template-columns: 1fr;
+    }
+    
+    .resource-bar {
+        flex-direction: column;
+    }
+}
+
+@media (max-width: 767px) and (orientation: landscape) {
+    .grid-2 {
+        grid-template-columns: 1fr 1fr;
+    }
+    
+    .resource-bar {
+        flex-direction: row;
+        justify-content: space-around;
+    }
+    
+    .combat-log {
+        height: 200px; /* Smaller in landscape */
+    }
+}
+
+/* Small Phone Optimizations (iPhone SE, etc.) */
+@media (max-width: 375px) {
+    .container {
+        padding: 5px;
+    }
+    
+    .game-section {
+        padding: 10px;
+    }
+    
+    .btn {
+        padding: 12px 16px;
+        font-size: 14px;
+    }
+    
+    .character-card {
+        padding: 10px;
+        min-height: 160px;
+    }
+    
+    .header h1 {
+        font-size: 1.6rem;
+    }
+    
+    .combat-log {
+        height: 200px;
+        font-size: 11px;
+    }
+}
+
+/* Large Phone Optimizations (iPhone Plus, etc.) */
+@media (min-width: 414px) and (max-width: 767px) {
+    .grid-auto {
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    }
+    
+    .resource-bar {
+        flex-direction: row;
+        justify-content: space-between;
+    }
+    
+    .resource, .turn-counter {
+        width: auto;
+        min-width: 100px;
+    }
+}
+
+/* Tablet Optimizations */
+@media (min-width: 768px) and (max-width: 1023px) {
+    .grid-auto {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .combat-log {
+        height: 350px;
+    }
+    
+    .character-card {
+        min-height: 220px;
+    }
+}
+
+/* High DPI / Retina Display Optimizations */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+    .character-card, .party-member, .game-section {
+        border-width: 0.5px;
+    }
+    
+    .stat-bar {
+        height: 6px;
+    }
+    
+    .skill {
+        border-left-width: 2px;
+    }
+}
+
+/* Accessibility: Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+    
+    .btn::before, .character-card::before, .dungeon-results::before {
+        display: none;
+    }
+    
+    .turn-counter {
+        animation: none;
+    }
+}
+
+/* Dark Mode Support */
+@media (prefers-color-scheme: dark) {
+    /* Already dark by default, but can add overrides here */
+}
+
+/* Light Mode Override (if needed) */
+@media (prefers-color-scheme: light) {
+    body {
+        background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+        color: #333;
+    }
+    
+    .game-section {
+        background: rgba(255, 255, 255, 0.9);
+        border-color: #1976d2;
+        color: #333;
+    }
+    
+    .character-card, .party-member {
+        background: rgba(255, 255, 255, 0.8);
+        border-color: #1976d2;
+        color: #333;
+    }
+    
+    .combat-log {
+        background: rgba(250, 250, 250, 0.9);
+        color: #333;
+        border-color: #ccc;
+    }
+}
+
+/* Print Styles (for documentation/debugging) */
+@media print {
+    body {
+        background: white;
+        color: black;
+    }
+    
+    .btn, .combat-log, #loadingScreen {
+        display: none;
+    }
+    
+    .game-section {
+        border: 1px solid black;
+        background: white;
+        page-break-inside: avoid;
+    }
+}
