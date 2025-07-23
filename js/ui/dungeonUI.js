@@ -10,6 +10,7 @@ class DungeonUI {
     static explorationModal = null;
     static autoExploreMode = false;
     static updateInterval = null;
+    static isClosing = false; // NEW: Prevent multiple close operations
 
     /**
      * Start dungeon exploration UI
@@ -18,6 +19,9 @@ class DungeonUI {
         console.log(`🏰 Starting dungeon exploration: ${dungeonType}`);
         
         try {
+            // Clean up any existing exploration first
+            this.forceCleanup();
+            
             // Create exploration instance
             this.currentExploration = new DungeonExploration(party, dungeonType, difficulty);
             
@@ -32,6 +36,7 @@ class DungeonUI {
         } catch (error) {
             console.error('Failed to start dungeon exploration:', error);
             UIManager.showMessage(`Failed to start exploration: ${error.message}`, 'error');
+            this.forceCleanup(); // Clean up on error
             return false;
         }
     }
@@ -127,29 +132,36 @@ class DungeonUI {
      * Update the exploration display
      */
     static updateExplorationDisplay() {
-        if (!this.currentExploration || !this.explorationModal) return;
+        if (!this.currentExploration || !this.explorationModal || this.isClosing) return;
 
-        const roomState = this.currentExploration.getCurrentRoomState();
-        if (!roomState) return;
+        try {
+            const roomState = this.currentExploration.getCurrentRoomState();
+            if (!roomState) return;
 
-        // Update room information
-        this.updateRoomDisplay(roomState);
-        
-        // Update actions
-        this.updateRoomActions(roomState);
-        
-        // Update map
-        this.updateDungeonMap();
-        
-        // Update party status
-        this.updatePartyStatus();
-        
-        // Update progress
-        this.updateProgress();
-        
-        // Update title
-        const dungeonName = DUNGEONS_DATA[this.currentExploration.dungeonType]?.name || 'Unknown Dungeon';
-        document.getElementById('dungeonTitle').textContent = `🏰 ${dungeonName}`;
+            // Update room information
+            this.updateRoomDisplay(roomState);
+            
+            // Update actions
+            this.updateRoomActions(roomState);
+            
+            // Update map
+            this.updateDungeonMap();
+            
+            // Update party status
+            this.updatePartyStatus();
+            
+            // Update progress
+            this.updateProgress();
+            
+            // Update title
+            const dungeonName = DUNGEONS_DATA[this.currentExploration.dungeonType]?.name || 'Unknown Dungeon';
+            const titleEl = document.getElementById('dungeonTitle');
+            if (titleEl) {
+                titleEl.textContent = `🏰 ${dungeonName}`;
+            }
+        } catch (error) {
+            console.error('Error updating exploration display:', error);
+        }
     }
 
     /**
@@ -189,54 +201,54 @@ class DungeonUI {
 
         actionsEl.innerHTML = '';
 
+        if (!roomState.availableActions || roomState.availableActions.length === 0) {
+            actionsEl.innerHTML = '<p>No actions available</p>';
+            return;
+        }
+
         // Group actions by type
-        const roomActions = roomState.availableActions.filter(action => action.type !== 'move' && action.type !== 'retreat');
+        const roomActions = roomState.availableActions.filter(action => 
+            action.type !== 'move' && action.type !== 'retreat'
+        );
         const moveActions = roomState.availableActions.filter(action => action.type === 'move');
         const retreatActions = roomState.availableActions.filter(action => action.type === 'retreat');
 
-        // Room-specific actions
+        // Add room actions
         if (roomActions.length > 0) {
-            const roomActionsDiv = document.createElement('div');
-            roomActionsDiv.className = 'action-group';
-            roomActionsDiv.innerHTML = '<h4>Room Actions</h4>';
+            const roomDiv = document.createElement('div');
+            roomDiv.className = 'action-group';
+            roomDiv.innerHTML = '<h4>Room Actions</h4>';
             
             roomActions.forEach(action => {
                 const button = this.createActionButton(action);
-                roomActionsDiv.appendChild(button);
+                roomDiv.appendChild(button);
             });
             
-            actionsEl.appendChild(roomActionsDiv);
+            actionsEl.appendChild(roomDiv);
         }
 
-        // Movement actions
+        // Add movement actions
         if (moveActions.length > 0) {
-            const moveActionsDiv = document.createElement('div');
-            moveActionsDiv.className = 'action-group';
-            moveActionsDiv.innerHTML = '<h4>Available Paths</h4>';
+            const moveDiv = document.createElement('div');
+            moveDiv.className = 'action-group';
+            moveDiv.innerHTML = '<h4>Move to:</h4>';
             
             moveActions.forEach(action => {
                 const button = this.createActionButton(action);
-                if (!action.discovered) {
-                    button.classList.add('unknown-path');
-                    button.title = 'Unexplored passage';
-                }
-                if (action.completed) {
-                    button.classList.add('completed-path');
-                }
-                moveActionsDiv.appendChild(button);
+                roomDiv.appendChild(button);
             });
             
-            actionsEl.appendChild(moveActionsDiv);
+            actionsEl.appendChild(moveDiv);
         }
 
-        // Retreat action
+        // Add retreat option
         if (retreatActions.length > 0) {
             const retreatDiv = document.createElement('div');
             retreatDiv.className = 'action-group retreat-group';
             
             retreatActions.forEach(action => {
                 const button = this.createActionButton(action);
-                button.classList.add('btn-warning');
+                button.className += ' btn-warning';
                 retreatDiv.appendChild(button);
             });
             
@@ -271,7 +283,7 @@ class DungeonUI {
      * Execute a dungeon action
      */
     static async executeAction(action) {
-        if (!this.currentExploration) return;
+        if (!this.currentExploration || this.isClosing) return;
 
         try {
             // Disable UI during action
@@ -347,95 +359,61 @@ class DungeonUI {
                 break;
                 
             case 'puzzle_solved':
-                message = `🧩 Puzzle solved! Gained rewards`;
+                message = `🧩 Puzzle solved!`;
                 break;
                 
-            case 'puzzle_failed':
-                message = `🧩 Failed to solve puzzle`;
-                messageType = 'warning';
+            case 'event_triggered':
+                message = `✨ Special event occurred!`;
                 break;
-                
-            case 'rest_completed':
-                message = `🛏️ Party rested and recovered`;
-                break;
-                
-            case 'retreat':
-                message = `🏃 Successfully retreated from dungeon`;
-                this.handleExplorationEnd(false, true);
-                return;
                 
             case 'movement':
-                message = `🚶 Moved to ${result.newRoom} room`;
-                messageType = 'info';
+                message = `🚶 Moved to ${result.newRoom}`;
                 break;
+                
+            default:
+                message = result.message || 'Action completed';
         }
 
-        if (message) {
-            UIManager.showMessage(message, messageType);
-        }
+        UIManager.showMessage(message, messageType);
     }
 
     /**
-     * Update dungeon map
+     * Update dungeon map display
      */
     static updateDungeonMap() {
         const mapEl = document.getElementById('dungeonMap');
         if (!mapEl || !this.currentExploration) return;
 
-        const roomMap = this.currentExploration.getRoomMap();
-        const currentRoomId = this.currentExploration.dungeon.currentRoomId;
-        
-        // Simple text-based map
-        let mapHTML = '<div class="map-grid">';
-        
-        // Find bounds
-        let minX = 0, maxX = 0, minY = 0, maxY = 0;
-        Object.keys(roomMap).forEach(key => {
-            const [x, y] = key.split(',').map(Number);
-            minX = Math.min(minX, x);
-            maxX = Math.max(maxX, x);
-            minY = Math.min(minY, y);
-            maxY = Math.max(maxY, y);
-        });
-        
-        // Generate map grid
-        for (let y = maxY; y >= minY; y--) {
-            mapHTML += '<div class="map-row">';
-            for (let x = minX; x <= maxX; x++) {
-                const key = `${x},${y}`;
-                const room = roomMap[key];
+        try {
+            const roomMap = this.currentExploration.getRoomMap();
+            const currentRoomId = this.currentExploration.dungeon.currentRoomId;
+            
+            mapEl.innerHTML = roomMap.map(room => {
+                const isCurrent = room.id === currentRoomId;
+                const isVisited = room.visited;
+                const isCompleted = room.completed;
                 
-                if (room) {
-                    const classes = ['map-room'];
-                    if (room.current) classes.push('current-room');
-                    if (room.completed) classes.push('completed-room');
-                    
-                    mapHTML += `
-                        <div class="${classes.join(' ')}" title="${room.type}">
-                            ${room.icon}
-                        </div>
-                    `;
-                } else {
-                    mapHTML += '<div class="map-empty">⬜</div>';
-                }
-            }
-            mapHTML += '</div>';
+                return `
+                    <div class="map-room ${isCurrent ? 'current' : ''} ${isVisited ? 'visited' : ''} ${isCompleted ? 'completed' : ''}">
+                        <span class="room-icon">${room.icon}</span>
+                        ${isCurrent ? '<span class="current-marker">📍</span>' : ''}
+                    </div>
+                `;
+            }).join('');
+        } catch (error) {
+            console.error('Error updating dungeon map:', error);
+            mapEl.innerHTML = '<p>Map unavailable</p>';
         }
-        
-        mapHTML += '</div>';
-        mapEl.innerHTML = mapHTML;
     }
 
     /**
-     * Update party status
+     * Update party status display
      */
     static updatePartyStatus() {
         const statusEl = document.getElementById('partyStatus');
         if (!statusEl || !this.currentExploration) return;
 
-        const party = this.currentExploration.party;
-        
-        statusEl.innerHTML = party.map(char => {
+        statusEl.innerHTML = this.currentExploration.party.map(char => {
             const hpPercent = char.getHealthPercentage ? char.getHealthPercentage() : 100;
             const mpPercent = char.getManaPercentage ? char.getManaPercentage() : 100;
             const isAlive = char.isAlive();
@@ -523,7 +501,8 @@ class DungeonUI {
      * Perform automatic action
      */
     static performAutoAction() {
-        if (!this.autoExploreMode || !this.currentExploration || this.currentExploration.state !== 'exploring') {
+        if (!this.autoExploreMode || !this.currentExploration || 
+            this.currentExploration.state !== 'exploring' || this.isClosing) {
             return;
         }
         
@@ -574,7 +553,10 @@ class DungeonUI {
      * Handle exploration end
      */
     static handleExplorationEnd(victory, retreated = false) {
-        if (!this.currentExploration) return;
+        if (!this.currentExploration || this.isClosing) return;
+        
+        // Prevent multiple end handlers
+        this.isClosing = true;
         
         const summary = this.currentExploration.getExplorationSummary();
         const dungeonName = DUNGEONS_DATA[this.currentExploration.dungeonType]?.name || 'Unknown Dungeon';
@@ -621,7 +603,7 @@ class DungeonUI {
      * Confirm exit exploration
      */
     static confirmExit() {
-        if (!this.currentExploration) {
+        if (!this.currentExploration || this.isClosing) {
             this.closeExploration();
             return;
         }
@@ -656,6 +638,9 @@ class DungeonUI {
      * Close exploration UI
      */
     static closeExploration() {
+        if (this.isClosing) return; // Prevent multiple close operations
+        this.isClosing = true;
+        
         // Stop update loop
         if (this.updateInterval) {
             clearInterval(this.updateInterval);
@@ -670,7 +655,10 @@ class DungeonUI {
                     this.explorationModal.parentNode.removeChild(this.explorationModal);
                 }
                 this.explorationModal = null;
+                this.isClosing = false; // Reset flag after cleanup
             }, 300);
+        } else {
+            this.isClosing = false; // Reset flag if no modal
         }
         
         // Clean up exploration
@@ -681,6 +669,29 @@ class DungeonUI {
         if (typeof UIManager !== 'undefined') {
             UIManager.showSection('actionsSection');
         }
+    }
+
+    /**
+     * Force cleanup - emergency cleanup method
+     */
+    static forceCleanup() {
+        // Stop all intervals
+        if (this.updateInterval) {
+            clearInterval(this.updateInterval);
+            this.updateInterval = null;
+        }
+        
+        // Remove modal immediately
+        const existingModal = document.querySelector('.dungeon-exploration-modal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+        
+        // Reset all state
+        this.explorationModal = null;
+        this.currentExploration = null;
+        this.autoExploreMode = false;
+        this.isClosing = false;
     }
 
     /**
@@ -710,7 +721,7 @@ class DungeonUI {
         }
         
         this.updateInterval = setInterval(() => {
-            if (this.currentExploration && this.explorationModal) {
+            if (this.currentExploration && this.explorationModal && !this.isClosing) {
                 this.updateExplorationDisplay();
                 
                 // Check for exploration end conditions
@@ -719,10 +730,31 @@ class DungeonUI {
                 } else if (this.currentExploration.state === 'retreated') {
                     this.handleExplorationEnd(false, true);
                 }
-            } else {
+            } else if (!this.currentExploration || !this.explorationModal) {
+                // Clean up if exploration is gone
                 this.closeExploration();
             }
         }, 1000);
+    }
+
+    /**
+     * Update exploration log
+     */
+    static updateExplorationLog() {
+        const logEl = document.getElementById('explorationLog');
+        if (!logEl || !this.currentExploration) return;
+
+        const logs = this.currentExploration.explorationLog || [];
+        
+        logEl.innerHTML = logs.slice(-20).map(entry => `
+            <div class="log-entry log-${entry.type || 'info'}">
+                <span class="log-timestamp">[${entry.timestamp || 'now'}]</span>
+                ${entry.message || entry}
+            </div>
+        `).join('');
+        
+        // Auto-scroll to bottom
+        logEl.scrollTop = logEl.scrollHeight;
     }
 
     /**
@@ -789,7 +821,7 @@ class DungeonUI {
                 border: 2px solid #3282b8;
                 border-radius: 8px;
                 padding: 15px;
-                flex: 1;
+                min-height: 200px;
             }
             
             .room-header {
@@ -797,11 +829,8 @@ class DungeonUI {
                 justify-content: space-between;
                 align-items: center;
                 margin-bottom: 10px;
-            }
-            
-            .room-header h3 {
-                margin: 0;
-                color: #bbe1fa;
+                border-bottom: 1px solid #3282b8;
+                padding-bottom: 10px;
             }
             
             .room-icon {
@@ -810,46 +839,33 @@ class DungeonUI {
             
             .room-description {
                 margin: 15px 0;
-                font-style: italic;
-                color: #ccc;
+                color: #bbe1fa;
                 line-height: 1.4;
             }
             
             .room-actions {
-                margin-top: 20px;
+                margin-top: 15px;
             }
             
             .action-group {
-                margin-bottom: 20px;
+                margin-bottom: 15px;
             }
             
             .action-group h4 {
-                margin: 0 0 10px 0;
-                color: #bbe1fa;
+                margin: 0 0 8px 0;
+                color: #3b82f6;
                 font-size: 14px;
-                border-bottom: 1px solid #3282b8;
-                padding-bottom: 5px;
             }
             
             .action-btn {
                 margin: 5px 5px 5px 0;
-                min-width: 140px;
+                min-width: 150px;
                 font-size: 13px;
             }
             
-            .unknown-path {
-                border-style: dashed !important;
-                opacity: 0.8;
-            }
-            
-            .completed-path {
-                opacity: 0.6;
-                background: linear-gradient(135deg, #666, #555) !important;
-            }
-            
             .retreat-group {
-                border-top: 1px solid #666;
-                padding-top: 15px;
+                border-top: 1px solid #3282b8;
+                padding-top: 10px;
             }
             
             .exploration-log-panel {
@@ -858,25 +874,81 @@ class DungeonUI {
                 border-radius: 8px;
                 padding: 15px;
                 flex: 1;
-                min-height: 200px;
-            }
-            
-            .exploration-log-panel h3 {
-                margin: 0 0 10px 0;
-                color: #bbe1fa;
+                min-height: 300px;
+                display: flex;
+                flex-direction: column;
             }
             
             .exploration-log {
-                height: calc(100% - 40px);
+                flex: 1;
                 overflow-y: auto;
-                background: rgba(0, 0, 0, 0.5);
-                border: 1px solid #3282b8;
+                max-height: 250px;
+                border: 1px solid rgba(50, 130, 184, 0.3);
                 border-radius: 4px;
                 padding: 10px;
-                font-family: 'Courier New', monospace;
+                background: rgba(0, 0, 0, 0.2);
+            }
+            
+            .log-entry {
+                margin-bottom: 8px;
+                padding: 6px 8px;
+                border-left: 3px solid #3282b8;
+                background: rgba(45, 55, 72, 0.2);
+                border-radius: 4px;
                 font-size: 12px;
-                color: #ccc;
                 line-height: 1.3;
+                animation: fadeInSlide 0.3s ease-out;
+            }
+            
+            .log-entry:hover {
+                background: rgba(45, 55, 72, 0.3);
+                border-left-color: var(--accent-blue);
+            }
+            
+            @keyframes fadeInSlide {
+                from { 
+                    opacity: 0; 
+                    transform: translateX(-10px);
+                }
+                to { 
+                    opacity: 1; 
+                    transform: translateX(0);
+                }
+            }
+            
+            .log-damage { 
+                color: #ff8a80; 
+                border-left-color: #f56565;
+            }
+            
+            .log-heal { 
+                color: #a5d6a7; 
+                border-left-color: #48bb78;
+            }
+            
+            .log-skill { 
+                color: #81d4fa; 
+                border-left-color: #4299e1;
+            }
+            
+            .log-death { 
+                color: #ffab91; 
+                font-weight: 600; 
+                border-left-color: #ed8936;
+                background: rgba(237, 137, 54, 0.1);
+            }
+            
+            .log-critical {
+                color: #ffd54f;
+                font-weight: 600;
+                border-left-color: #ecc94b;
+                background: rgba(236, 201, 75, 0.1);
+            }
+            
+            .log-timestamp {
+                color: #a0aec0;
+                font-size: 10px;
+                margin-right: 8px;
             }
             
             .dungeon-sidebar {
@@ -896,104 +968,103 @@ class DungeonUI {
                 padding: 15px;
             }
             
-            .dungeon-map-panel h3,
-            .party-status-panel h3,
-            .progress-panel h3 {
-                margin: 0 0 10px 0;
-                color: #bbe1fa;
-                font-size: 14px;
-            }
-            
             .dungeon-map {
-                display: flex;
-                justify-content: center;
-                padding: 10px;
-            }
-            
-            .map-grid {
-                display: inline-block;
-                border: 1px solid #666;
-                background: rgba(0, 0, 0, 0.3);
-            }
-            
-            .map-row {
-                display: flex;
-            }
-            
-            .map-room,
-            .map-empty {
-                width: 30px;
-                height: 30px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                border: 1px solid #333;
-                font-size: 14px;
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(40px, 1fr));
+                gap: 8px;
+                max-height: 200px;
+                overflow-y: auto;
             }
             
             .map-room {
-                background: rgba(50, 130, 184, 0.3);
-                cursor: help;
+                width: 40px;
+                height: 40px;
+                border: 2px solid #3282b8;
+                border-radius: 6px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                position: relative;
+                font-size: 16px;
+                background: rgba(45, 55, 72, 0.6);
+                transition: all 0.2s ease;
             }
             
-            .current-room {
-                background: rgba(255, 215, 0, 0.5) !important;
-                border-color: #ffd700 !important;
-                animation: pulse-map 2s infinite;
+            .map-room.visited {
+                background: rgba(56, 142, 60, 0.3);
+                border-color: #4caf50;
             }
             
-            .completed-room {
-                background: rgba(76, 175, 80, 0.3) !important;
+            .map-room.completed {
+                background: rgba(49, 130, 206, 0.3);
+                border-color: #3182ce;
             }
             
-            @keyframes pulse-map {
-                0%, 100% { opacity: 1; }
-                50% { opacity: 0.7; }
+            .map-room.current {
+                background: rgba(237, 137, 54, 0.4);
+                border-color: #ed8936;
+                box-shadow: 0 0 10px rgba(237, 137, 54, 0.5);
+            }
+            
+            .current-marker {
+                position: absolute;
+                top: -2px;
+                right: -2px;
+                font-size: 8px;
+            }
+            
+            .party-status-compact {
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
             }
             
             .party-member-compact {
-                margin-bottom: 10px;
-                padding: 8px;
-                background: rgba(0, 0, 0, 0.3);
-                border-radius: 4px;
+                background: rgba(45, 55, 72, 0.4);
                 border: 1px solid #3282b8;
+                border-radius: 6px;
+                padding: 10px;
+                transition: all 0.2s ease;
             }
             
             .party-member-compact.unconscious {
                 opacity: 0.6;
-                border-color: #666;
+                border-color: #f56565;
+                background: rgba(245, 101, 101, 0.1);
             }
             
             .member-name {
-                font-weight: bold;
-                margin-bottom: 5px;
+                font-weight: 600;
+                margin-bottom: 6px;
+                color: #bbe1fa;
                 font-size: 12px;
             }
             
             .member-bars {
                 display: flex;
                 flex-direction: column;
-                gap: 2px;
+                gap: 4px;
             }
             
             .hp-bar-small,
             .mp-bar-small {
-                height: 12px;
-                background: #333;
-                border-radius: 6px;
+                height: 16px;
+                background: rgba(0, 0, 0, 0.3);
+                border-radius: 8px;
                 overflow: hidden;
                 position: relative;
+                border: 1px solid rgba(50, 130, 184, 0.3);
             }
             
             .hp-fill-small {
                 height: 100%;
-                background: linear-gradient(90deg, #ff6b6b, #51cf66);
+                background: linear-gradient(90deg, #48bb78, #38a169);
                 transition: width 0.3s ease;
             }
             
             .mp-fill-small {
                 height: 100%;
-                background: linear-gradient(90deg, #495057, #74c0fc);
+                background: linear-gradient(90deg, #4299e1, #3182ce);
                 transition: width 0.3s ease;
             }
             

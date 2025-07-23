@@ -1,130 +1,26 @@
 /**
  * ===========================================
- * VALIDATION UTILITIES
+ * ENHANCED VALIDATION UTILITIES
  * ===========================================
- * Comprehensive data validation for game integrity
+ * Enhanced validation system with memory management and bug fixes
  */
 
-/**
- * ===========================================
- * VALIDATION UTILITIES
- * ===========================================
- * Comprehensive data validation for game integrity
- */
-
-class ValidationManager {
-    static instance = null;
-    static validationRules = {};
-    static validationErrors = [];
-
-    constructor() {
-        if (ValidationManager.instance) {
-            return ValidationManager.instance;
-        }
-        ValidationManager.instance = this;
-        
-        this.initializeValidationRules();
-    }
+// Extend the existing ValidationUtils from helpers.js instead of creating a new class
+if (typeof ValidationUtils !== 'undefined') {
+    // Enhance existing ValidationUtils with new methods
+    ValidationUtils.validationCache = new Map();
+    ValidationUtils.maxCacheSize = 100;
+    ValidationUtils.lastCleanup = Date.now();
+    ValidationUtils.cleanupInterval = 300000; // 5 minutes
 
     /**
-     * Initialize all validation rules
+     * Enhanced game state validation with caching
      */
-    initializeValidationRules() {
-        this.validationRules = {
-            // Character validation
-            character: {
-                id: { type: 'string', required: true, minLength: 1, maxLength: 50 },
-                name: { type: 'string', required: true, minLength: 1, maxLength: 100 },
-                level: { type: 'number', required: true, min: 1, max: 100 },
-                currentHP: { type: 'number', required: true, min: 0 },
-                maxHP: { type: 'number', required: true, min: 1, max: 9999 },
-                currentMP: { type: 'number', required: true, min: 0 },
-                maxMP: { type: 'number', required: true, min: 0, max: 9999 },
-                stats: {
-                    type: 'object',
-                    required: true,
-                    properties: {
-                        might: { type: 'number', min: 0, max: 999 },
-                        agility: { type: 'number', min: 0, max: 999 },
-                        mind: { type: 'number', min: 0, max: 999 },
-                        spirit: { type: 'number', min: 0, max: 999 },
-                        endurance: { type: 'number', min: 0, max: 999 }
-                    }
-                }
-            },
-
-            // Game state validation
-            gameState: {
-                resources: {
-                    type: 'object',
-                    required: true,
-                    properties: {
-                        gold: { type: 'number', min: 0, max: 999999 },
-                        materials: { type: 'number', min: 0, max: 99999 },
-                        reputation: { type: 'number', min: 0, max: 100 }
-                    }
-                },
-                turnsLeft: { type: 'number', required: true, min: 0, max: 50 },
-                currentSeason: { type: 'number', required: true, min: 1, max: 999 },
-                party: { 
-                    type: 'array', 
-                    required: true, 
-                    maxLength: 4,
-                    itemValidation: 'character'
-                }
-            },
-
-            // Skill validation
-            skill: {
-                name: { type: 'string', required: true, minLength: 1, maxLength: 50 },
-                trigger: { type: 'string', required: true, minLength: 1, maxLength: 50 },
-                baseChance: { type: 'number', required: true, min: 0, max: 100 },
-                statModifier: { 
-                    type: 'string', 
-                    required: true, 
-                    enum: ['might', 'agility', 'mind', 'spirit', 'endurance']
-                },
-                cooldown: { type: 'number', required: true, min: 0, max: 20 },
-                manaCost: { type: 'number', required: true, min: 0, max: 200 }
-            },
-
-            // Combat validation
-            combat: {
-                enemy: {
-                    type: 'object',
-                    required: true,
-                    properties: {
-                        name: { type: 'string', required: true, minLength: 1 },
-                        currentHP: { type: 'number', required: true, min: 0 },
-                        maxHP: { type: 'number', required: true, min: 1 },
-                        attackPower: { type: 'number', required: true, min: 0 },
-                        difficulty: { type: 'number', required: true, min: 1, max: 10 }
-                    }
-                },
-                round: { type: 'number', required: true, min: 0, max: 100 },
-                isActive: { type: 'boolean', required: true }
-            },
-
-            // Save data validation
-            saveData: {
-                version: { type: 'string', required: true, minLength: 1 },
-                timestamp: { type: 'number', required: true, min: 0 },
-                gameData: { type: 'object', required: true, validation: 'gameState' }
-            }
-        };
-    }
-
-    /**
-     * Validate any data against specified rules
-     */
-    static validate(data, ruleName, context = '') {
-        const instance = new ValidationManager();
-        const rule = instance.validationRules[ruleName];
-        
-        if (!rule) {
+    ValidationUtils.validateGameStateEnhanced = function(gameState) {
+        if (!gameState) {
             return {
                 valid: false,
-                errors: [`Unknown validation rule: ${ruleName}`],
+                errors: ['Game state is null or undefined'],
                 warnings: []
             };
         }
@@ -136,447 +32,1036 @@ class ValidationManager {
         };
 
         try {
-            instance.validateObject(data, rule, result, context);
+            // Check required properties
+            const requiredProps = ['adventurer', 'resources', 'gameVersion'];
+            requiredProps.forEach(prop => {
+                if (!gameState.hasOwnProperty(prop)) {
+                    result.errors.push(`Missing required property: ${prop}`);
+                    result.valid = false;
+                }
+            });
+
+            // Validate adventurer
+            if (gameState.adventurer) {
+                const adventurerValidation = this.validateCharacterEnhanced(gameState.adventurer);
+                if (!adventurerValidation.valid) {
+                    result.errors.push(...adventurerValidation.errors.map(e => `Adventurer: ${e}`));
+                    result.valid = false;
+                }
+                result.warnings.push(...adventurerValidation.warnings.map(w => `Adventurer: ${w}`));
+            }
+
+            // Validate resources
+            if (gameState.resources) {
+                const resourceValidation = this.validateResourcesEnhanced(gameState.resources);
+                if (!resourceValidation.valid) {
+                    result.errors.push(...resourceValidation.errors);
+                    result.valid = false;
+                }
+                result.warnings.push(...resourceValidation.warnings);
+            }
+
+            // Check for data corruption
+            const corruptionCheck = this.checkDataCorruption(gameState);
+            if (corruptionCheck.length > 0) {
+                result.warnings.push(...corruptionCheck);
+            }
+
         } catch (error) {
             result.valid = false;
             result.errors.push(`Validation error: ${error.message}`);
         }
 
-        result.valid = result.errors.length === 0;
         return result;
-    }
+    };
 
     /**
-     * Validate object against rule set
+     * Enhanced character validation
      */
-    validateObject(data, rules, result, context) {
-        if (data === null || data === undefined) {
-            if (rules.required) {
-                result.errors.push(`${context} is required but missing`);
-            }
-            return;
+    ValidationUtils.validateCharacterEnhanced = function(character) {
+        const result = {
+            valid: true,
+            errors: [],
+            warnings: []
+        };
+
+        if (!character) {
+            return {
+                valid: false,
+                errors: ['Character is null or undefined'],
+                warnings: []
+            };
         }
 
-        Object.keys(rules).forEach(key => {
-            if (key === 'type' || key === 'required') return;
-            
-            const rule = rules[key];
-            const value = data[key];
-            const fieldContext = context ? `${context}.${key}` : key;
-
-            this.validateField(value, rule, result, fieldContext);
-        });
-    }
-
-    /**
-     * Validate individual field
-     */
-    validateField(value, rule, result, context) {
-        // Check if field is required
-        if (rule.required && (value === null || value === undefined)) {
-            result.errors.push(`${context} is required`);
-            return;
-        }
-
-        // Skip validation if value is not provided and not required
-        if (value === null || value === undefined) {
-            return;
-        }
-
-        // Type validation
-        if (rule.type) {
-            if (!this.validateType(value, rule.type)) {
-                result.errors.push(`${context} must be of type ${rule.type}`);
-                return;
-            }
-        }
-
-        // Specific type validations
-        switch (rule.type) {
-            case 'string':
-                this.validateString(value, rule, result, context);
-                break;
-            case 'number':
-                this.validateNumber(value, rule, result, context);
-                break;
-            case 'array':
-                this.validateArray(value, rule, result, context);
-                break;
-            case 'object':
-                this.validateObjectType(value, rule, result, context);
-                break;
-            case 'boolean':
-                // Boolean validation is covered by type check
-                break;
-        }
-
-        // Enum validation
-        if (rule.enum && !rule.enum.includes(value)) {
-            result.errors.push(`${context} must be one of: ${rule.enum.join(', ')}`);
-        }
-
-        // Custom validation function
-        if (rule.validator && typeof rule.validator === 'function') {
-            const customResult = rule.validator(value, context);
-            if (customResult !== true) {
-                result.errors.push(customResult || `${context} failed custom validation`);
-            }
-        }
-    }
-
-    /**
-     * Validate data type
-     */
-    validateType(value, expectedType) {
-        switch (expectedType) {
-            case 'string':
-                return typeof value === 'string';
-            case 'number':
-                return typeof value === 'number' && !isNaN(value);
-            case 'boolean':
-                return typeof value === 'boolean';
-            case 'array':
-                return Array.isArray(value);
-            case 'object':
-                return typeof value === 'object' && value !== null && !Array.isArray(value);
-            default:
-                return true;
-        }
-    }
-
-    /**
-     * Validate string field
-     */
-    validateString(value, rule, result, context) {
-        if (rule.minLength && value.length < rule.minLength) {
-            result.errors.push(`${context} must be at least ${rule.minLength} characters long`);
-        }
-
-        if (rule.maxLength && value.length > rule.maxLength) {
-            result.errors.push(`${context} must be no more than ${rule.maxLength} characters long`);
-        }
-
-        if (rule.pattern && !rule.pattern.test(value)) {
-            result.errors.push(`${context} does not match required pattern`);
-        }
-
-        // Check for valid characters (prevent XSS)
-        if (/<script|javascript:|on\w+=/i.test(value)) {
-            result.errors.push(`${context} contains invalid characters`);
-        }
-    }
-
-    /**
-     * Validate number field
-     */
-    validateNumber(value, rule, result, context) {
-        if (rule.min !== undefined && value < rule.min) {
-            result.errors.push(`${context} must be at least ${rule.min}`);
-        }
-
-        if (rule.max !== undefined && value > rule.max) {
-            result.errors.push(`${context} must be no more than ${rule.max}`);
-        }
-
-        if (rule.integer && !Number.isInteger(value)) {
-            result.errors.push(`${context} must be an integer`);
-        }
-
-        if (!isFinite(value)) {
-            result.errors.push(`${context} must be a finite number`);
-        }
-    }
-
-    /**
-     * Validate array field
-     */
-    validateArray(value, rule, result, context) {
-        if (rule.minLength && value.length < rule.minLength) {
-            result.errors.push(`${context} must have at least ${rule.minLength} items`);
-        }
-
-        if (rule.maxLength && value.length > rule.maxLength) {
-            result.errors.push(`${context} must have no more than ${rule.maxLength} items`);
-        }
-
-        // Validate array items
-        if (rule.itemValidation) {
-            value.forEach((item, index) => {
-                const itemContext = `${context}[${index}]`;
-                const itemRule = this.validationRules[rule.itemValidation];
-                if (itemRule) {
-                    this.validateObject(item, itemRule, result, itemContext);
+        try {
+            // Check required properties
+            const requiredProps = ['name', 'level', 'currentHP', 'maxHP', 'stats'];
+            requiredProps.forEach(prop => {
+                if (!character.hasOwnProperty(prop)) {
+                    result.errors.push(`Missing required property: ${prop}`);
+                    result.valid = false;
                 }
             });
-        }
-    }
 
-    /**
-     * Validate object field
-     */
-    validateObjectType(value, rule, result, context) {
-        if (rule.properties) {
-            this.validateObject(value, rule.properties, result, context);
-        }
+            // Validate numeric properties
+            const numericProps = ['level', 'currentHP', 'maxHP', 'currentMP', 'maxMP'];
+            numericProps.forEach(prop => {
+                if (character.hasOwnProperty(prop)) {
+                    if (typeof character[prop] !== 'number' || isNaN(character[prop])) {
+                        result.errors.push(`${prop} must be a valid number`);
+                        result.valid = false;
+                    } else if (character[prop] < 0) {
+                        result.errors.push(`${prop} cannot be negative`);
+                        result.valid = false;
+                    }
+                }
+            });
 
-        if (rule.validation && this.validationRules[rule.validation]) {
-            this.validateObject(value, this.validationRules[rule.validation], result, context);
-        }
-    }
+            // Validate stats object
+            if (character.stats) {
+                const statValidation = this.validateStatsEnhanced(character.stats);
+                if (!statValidation.valid) {
+                    result.errors.push(...statValidation.errors);
+                    result.valid = false;
+                }
+                result.warnings.push(...statValidation.warnings);
+            }
 
-    /**
-     * Validate character data
-     */
-    static validateCharacter(character) {
-        const result = this.validate(character, 'character', 'character');
-        
-        // Additional character-specific validations
-        if (character && result.valid) {
-            // HP should not exceed max HP
+            // Logical validations
             if (character.currentHP > character.maxHP) {
-                result.errors.push('Current HP cannot exceed maximum HP');
+                result.warnings.push('Current HP exceeds max HP');
+            }
+
+            if (character.currentMP && character.maxMP && character.currentMP > character.maxMP) {
+                result.warnings.push('Current MP exceeds max MP');
+            }
+
+            if (character.level < 1) {
+                result.errors.push('Level cannot be less than 1');
                 result.valid = false;
             }
 
-            // MP should not exceed max MP
-            if (character.currentMP > character.maxMP) {
-                result.errors.push('Current MP cannot exceed maximum MP');
+            if (character.level > 100) {
+                result.warnings.push('Level is unusually high (>100)');
+            }
+
+            // Validate arrays
+            if (character.learnedSkills && !Array.isArray(character.learnedSkills)) {
+                result.errors.push('learnedSkills must be an array');
                 result.valid = false;
             }
 
-            // Level should be consistent with stats
-            const expectedStatTotal = character.level * 50; // Rough estimate
-            const actualStatTotal = Object.values(character.stats || {}).reduce((sum, stat) => sum + stat, 0);
-            
-            if (actualStatTotal > expectedStatTotal * 3) {
-                result.warnings.push('Character stats seem unusually high for level');
+            if (character.masteredSkills && !Array.isArray(character.masteredSkills)) {
+                result.errors.push('masteredSkills must be an array');
+                result.valid = false;
             }
+
+        } catch (error) {
+            result.valid = false;
+            result.errors.push(`Character validation error: ${error.message}`);
         }
 
         return result;
-    }
+    };
 
     /**
-     * Validate game state
+     * Enhanced stats validation
      */
-    static validateGameState(gameState) {
-        const result = this.validate(gameState, 'gameState', 'gameState');
+    ValidationUtils.validateStatsEnhanced = function(stats) {
+        const result = {
+            valid: true,
+            errors: [],
+            warnings: []
+        };
 
-        // Additional game state validations
-        if (gameState && result.valid) {
-            // Party validation
-            if (gameState.party && gameState.party.length > 0) {
-                gameState.party.forEach((character, index) => {
-                    const charResult = this.validateCharacter(character);
-                    if (!charResult.valid) {
-                        result.errors.push(...charResult.errors.map(err => `party[${index}]: ${err}`));
-                        result.valid = false;
-                    }
-                    result.warnings.push(...charResult.warnings.map(warn => `party[${index}]: ${warn}`));
-                });
-            }
+        if (!stats || typeof stats !== 'object') {
+            return {
+                valid: false,
+                errors: ['Stats must be an object'],
+                warnings: []
+            };
+        }
 
-            // Turn validation
-            if (gameState.turnsLeft > gameState.maxTurns) {
-                result.errors.push('Turns left cannot exceed maximum turns');
+        const expectedStats = ['might', 'agility', 'mind', 'spirit', 'endurance'];
+        
+        expectedStats.forEach(stat => {
+            if (!stats.hasOwnProperty(stat)) {
+                result.errors.push(`Missing stat: ${stat}`);
                 result.valid = false;
+            } else if (typeof stats[stat] !== 'number' || isNaN(stats[stat])) {
+                result.errors.push(`${stat} must be a valid number`);
+                result.valid = false;
+            } else if (stats[stat] < 0) {
+                result.errors.push(`${stat} cannot be negative`);
+                result.valid = false;
+            } else if (stats[stat] > 1000) {
+                result.warnings.push(`${stat} is unusually high (${stats[stat]})`);
+            }
+        });
+
+        return result;
+    };
+
+    /**
+     * Enhanced resources validation
+     */
+    ValidationUtils.validateResourcesEnhanced = function(resources) {
+        const result = {
+            valid: true,
+            errors: [],
+            warnings: []
+        };
+
+        if (!resources || typeof resources !== 'object') {
+            return {
+                valid: false,
+                errors: ['Resources must be an object'],
+                warnings: []
+            };
+        }
+
+        const expectedResources = ['gold', 'materials', 'experience'];
+        
+        expectedResources.forEach(resource => {
+            if (!resources.hasOwnProperty(resource)) {
+                result.errors.push(`Missing resource: ${resource}`);
+                result.valid = false;
+            } else if (typeof resources[resource] !== 'number' || isNaN(resources[resource])) {
+                result.errors.push(`${resource} must be a valid number`);
+                result.valid = false;
+            } else if (resources[resource] < 0) {
+                result.errors.push(`${resource} cannot be negative`);
+                result.valid = false;
+            } else if (resources[resource] > 999999) {
+                result.warnings.push(`${resource} is unusually high (${resources[resource]})`);
+            }
+        });
+
+        return result;
+    };
+
+    /**
+     * Check for data corruption indicators
+     */
+    ValidationUtils.checkDataCorruption = function(data) {
+        const issues = [];
+
+        try {
+            // Check for circular references
+            try {
+                JSON.stringify(data);
+            } catch (error) {
+                if (error.message.includes('circular')) {
+                    issues.push('Circular reference detected in game data');
+                }
             }
 
-            // Resource validation
-            if (gameState.resources) {
-                Object.entries(gameState.resources).forEach(([resource, amount]) => {
-                    if (amount < 0) {
-                        result.errors.push(`${resource} cannot be negative`);
-                        result.valid = false;
+            // Check for unusually large data structures
+            const dataString = JSON.stringify(data);
+            if (dataString.length > 1000000) { // 1MB threshold
+                issues.push(`Game data is unusually large: ${Math.round(dataString.length / 1024)}KB`);
+            }
+
+            // Check for null/undefined properties in critical objects
+            if (data.adventurer) {
+                Object.entries(data.adventurer).forEach(([key, value]) => {
+                    if (value === null && key !== 'equipment') {
+                        issues.push(`Null value in adventurer.${key}`);
                     }
                 });
             }
+
+            // Check timestamp validity
+            if (data.lastSaved) {
+                const lastSaved = new Date(data.lastSaved);
+                const now = new Date();
+                if (lastSaved > now) {
+                    issues.push('Last saved timestamp is in the future');
+                } else if (now - lastSaved > 365 * 24 * 60 * 60 * 1000) {
+                    issues.push('Save data is over a year old');
+                }
+            }
+
+        } catch (error) {
+            issues.push(`Corruption check failed: ${error.message}`);
+        }
+
+        return issues;
+    };
+
+    /**
+     * Enhanced performance checking
+     */
+    ValidationUtils.checkPerformanceEnhanced = function() {
+        const result = {
+            valid: true,
+            errors: [],
+            warnings: []
+        };
+
+        try {
+            // Check memory usage if available
+            if (performance.memory) {
+                const memoryInfo = {
+                    used: Math.round(performance.memory.usedJSHeapSize / 1024 / 1024),
+                    total: Math.round(performance.memory.totalJSHeapSize / 1024 / 1024),
+                    limit: Math.round(performance.memory.jsHeapSizeLimit / 1024 / 1024)
+                };
+
+                if (memoryInfo.used > memoryInfo.limit * 0.8) {
+                    result.warnings.push(`High memory usage: ${memoryInfo.used}MB of ${memoryInfo.limit}MB`);
+                }
+
+                if (memoryInfo.used > 100) { // 100MB threshold
+                    result.warnings.push(`Memory usage is high: ${memoryInfo.used}MB`);
+                }
+            }
+
+            // Check for large objects in global scope
+            const largeObjects = [];
+            if (typeof window !== 'undefined') {
+                Object.keys(window).forEach(key => {
+                    try {
+                        const obj = window[key];
+                        if (obj && typeof obj === 'object' && obj !== window) {
+                            const jsonSize = JSON.stringify(obj).length;
+                            if (jsonSize > 100000) { // 100KB threshold
+                                largeObjects.push(`${key}: ~${Math.round(jsonSize / 1024)}KB`);
+                            }
+                        }
+                    } catch (e) {
+                        // Skip objects that can't be stringified
+                    }
+                });
+            }
+
+            if (largeObjects.length > 0) {
+                result.warnings.push(`Large objects detected: ${largeObjects.join(', ')}`);
+            }
+
+            // Check for excessive DOM elements
+            if (typeof document !== 'undefined') {
+                const elementCount = document.querySelectorAll('*').length;
+                if (elementCount > 5000) {
+                    result.warnings.push(`High DOM element count: ${elementCount}`);
+                }
+            }
+
+            // Check for memory leaks in validation cache
+            this.cleanupValidationCache();
+
+        } catch (error) {
+            result.warnings.push(`Performance check failed: ${error.message}`);
         }
 
         return result;
-    }
+    };
+
+    /**
+     * Clean up validation cache to prevent memory leaks
+     */
+    ValidationUtils.cleanupValidationCache = function() {
+        const now = Date.now();
+        
+        // Only cleanup if enough time has passed
+        if (now - this.lastCleanup < this.cleanupInterval) {
+            return;
+        }
+
+        if (this.validationCache.size > this.maxCacheSize) {
+            // Remove oldest entries
+            const entries = Array.from(this.validationCache.entries());
+            const toRemove = entries.slice(0, Math.floor(this.maxCacheSize / 2));
+            
+            toRemove.forEach(([key]) => {
+                this.validationCache.delete(key);
+            });
+            
+            console.log(`🧹 Cleaned up ${toRemove.length} validation cache entries`);
+        }
+        
+        this.lastCleanup = now;
+    };
+
+    /**
+     * Validate dungeon exploration state
+     */
+    ValidationUtils.validateDungeonState = function(exploration) {
+        const result = {
+            valid: true,
+            errors: [],
+            warnings: []
+        };
+
+        if (!exploration) {
+            return {
+                valid: false,
+                errors: ['Exploration state is null or undefined'],
+                warnings: []
+            };
+        }
+
+        try {
+            // Check required properties
+            const requiredProps = ['party', 'dungeonType', 'state', 'dungeon'];
+            requiredProps.forEach(prop => {
+                if (!exploration.hasOwnProperty(prop)) {
+                    result.errors.push(`Missing required property: ${prop}`);
+                    result.valid = false;
+                }
+            });
+
+            // Validate party
+            if (exploration.party) {
+                if (!Array.isArray(exploration.party)) {
+                    result.errors.push('Party must be an array');
+                    result.valid = false;
+                } else if (exploration.party.length === 0) {
+                    result.errors.push('Party cannot be empty');
+                    result.valid = false;
+                } else {
+                    // Validate each party member
+                    exploration.party.forEach((member, index) => {
+                        const memberValidation = this.validateCharacterEnhanced(member);
+                        if (!memberValidation.valid) {
+                            result.errors.push(`Party member ${index}: ${memberValidation.errors.join(', ')}`);
+                            result.valid = false;
+                        }
+                    });
+                }
+            }
+
+            // Validate state
+            const validStates = ['exploring', 'combat', 'paused', 'completed', 'retreated'];
+            if (exploration.state && !validStates.includes(exploration.state)) {
+                result.errors.push(`Invalid exploration state: ${exploration.state}`);
+                result.valid = false;
+            }
+
+            // Check for stuck states
+            if (exploration.explorationLog && exploration.explorationLog.length > 1000) {
+                result.warnings.push('Exploration log is very large, may indicate stuck state');
+            }
+
+            // Validate dungeon type
+            if (exploration.dungeonType && typeof DUNGEONS_DATA !== 'undefined') {
+                if (!DUNGEONS_DATA[exploration.dungeonType]) {
+                    result.errors.push(`Unknown dungeon type: ${exploration.dungeonType}`);
+                    result.valid = false;
+                }
+            }
+
+        } catch (error) {
+            result.valid = false;
+            result.errors.push(`Dungeon state validation error: ${error.message}`);
+        }
+
+        return result;
+    };
 
     /**
      * Validate combat state
      */
-    static validateCombat(combat) {
-        const result = this.validate(combat, 'combat', 'combat');
+    ValidationUtils.validateCombatStateEnhanced = function(combat) {
+        const result = {
+            valid: true,
+            errors: [],
+            warnings: []
+        };
 
-        // Additional combat validations
-        if (combat && result.valid) {
-            // Party should have at least one alive member
-            if (combat.party && !combat.party.some(char => char.isAlive && char.isAlive())) {
-                result.warnings.push('No party members are alive in combat');
-            }
-
-            // Combat round should not be excessive
-            if (combat.round > 50) {
-                result.warnings.push('Combat has been running for an unusually long time');
-            }
+        if (!combat) {
+            return { valid: true }; // No combat is valid
         }
 
-        return result;
-    }
-
-    /**
-     * Validate save data
-     */
-    static validateSaveData(saveData) {
-        const result = this.validate(saveData, 'saveData', 'saveData');
-
-        // Additional save data validations
-        if (saveData && result.valid) {
-            // Version compatibility check
-            if (saveData.version && typeof GAME_VERSION !== 'undefined') {
-                if (saveData.version !== GAME_VERSION) {
-                    result.warnings.push(`Save version ${saveData.version} differs from game version ${GAME_VERSION}`);
-                }
-            }
-
-            // Timestamp should be reasonable
-            const now = Date.now();
-            const oneYearAgo = now - (365 * 24 * 60 * 60 * 1000);
-            const oneYearFromNow = now + (365 * 24 * 60 * 60 * 1000);
-            
-            if (saveData.timestamp < oneYearAgo || saveData.timestamp > oneYearFromNow) {
-                result.warnings.push('Save timestamp appears to be invalid');
-            }
-
-            // Validate game data
-            if (saveData.gameData) {
-                const gameStateResult = this.validateGameState(saveData.gameData);
-                if (!gameStateResult.valid) {
-                    result.errors.push(...gameStateResult.errors.map(err => `gameData: ${err}`));
+        try {
+            // Check required properties
+            const requiredProps = ['party', 'enemies', 'round', 'phase'];
+            requiredProps.forEach(prop => {
+                if (!combat.hasOwnProperty(prop)) {
+                    result.errors.push(`Missing required property: ${prop}`);
                     result.valid = false;
                 }
-                result.warnings.push(...gameStateResult.warnings.map(warn => `gameData: ${warn}`));
+            });
+
+            // Validate party
+            if (combat.party) {
+                if (!Array.isArray(combat.party) || combat.party.length === 0) {
+                    result.errors.push('Combat party must be a non-empty array');
+                    result.valid = false;
+                }
             }
+
+            // Validate enemies
+            if (combat.enemies) {
+                if (!Array.isArray(combat.enemies) || combat.enemies.length === 0) {
+                    result.errors.push('Combat enemies must be a non-empty array');
+                    result.valid = false;
+                }
+            }
+
+            // Check for excessive rounds
+            if (combat.round > 50) {
+                result.warnings.push(`Combat has many rounds: ${combat.round}`);
+            }
+
+            if (combat.round > 100) {
+                result.errors.push('Combat has exceeded maximum rounds');
+                result.valid = false;
+            }
+
+            // Validate phase
+            const validPhases = ['player_turn', 'enemy_turn', 'resolution'];
+            if (combat.phase && !validPhases.includes(combat.phase)) {
+                result.errors.push(`Invalid combat phase: ${combat.phase}`);
+                result.valid = false;
+            }
+
+            // Check combat duration
+            if (combat.startTime) {
+                const duration = Date.now() - combat.startTime;
+                if (duration > 300000) { // 5 minutes
+                    result.warnings.push(`Combat has been running for ${Math.round(duration / 60000)} minutes`);
+                }
+                if (duration > 600000) { // 10 minutes
+                    result.errors.push('Combat has exceeded maximum duration');
+                    result.valid = false;
+                }
+            }
+
+        } catch (error) {
+            result.valid = false;
+            result.errors.push(`Combat state validation error: ${error.message}`);
         }
 
         return result;
-    }
+    };
 
     /**
-     * Validate skill data
+     * Emergency cleanup for memory issues
      */
-    static validateSkill(skill) {
-        return this.validate(skill, 'skill', 'skill');
-    }
-
-    /**
-     * Sanitize user input
-     */
-    static sanitizeInput(input, maxLength = 1000) {
-        if (typeof input !== 'string') {
-            return '';
+    ValidationUtils.emergencyCleanup = function() {
+        console.warn('🚨 Performing emergency cleanup...');
+        
+        try {
+            // Clear validation cache
+            this.validationCache.clear();
+            
+            // Force garbage collection if available
+            if (window.gc) {
+                window.gc();
+            }
+            
+            // Clear any large global arrays
+            if (window.CombatManager?.combatLog) {
+                window.CombatManager.combatLog = window.CombatManager.combatLog.slice(-10);
+            }
+            
+            // Remove orphaned modal elements
+            const modals = document.querySelectorAll('.modal-overlay');
+            modals.forEach((modal, index) => {
+                if (index > 0) { // Keep only the first modal
+                    modal.remove();
+                }
+            });
+            
+            console.log('✅ Emergency cleanup completed');
+            
+        } catch (error) {
+            console.error('Emergency cleanup failed:', error);
         }
-
-        return input
-            .trim()
-            .substring(0, maxLength)
-            .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-            .replace(/javascript:/gi, '')
-            .replace(/on\w+\s*=/gi, '')
-            .replace(/[<>]/g, '');
-    }
+    };
 
     /**
-     * Validate and sanitize character name
+     * Get system health report
      */
-    static validateCharacterName(name) {
-        const result = {
-            valid: true,
-            sanitized: '',
-            errors: []
+    ValidationUtils.getSystemHealth = function() {
+        const health = {
+            status: 'healthy',
+            issues: [],
+            metrics: {}
         };
 
-        if (typeof name !== 'string') {
-            result.valid = false;
-            result.errors.push('Name must be a string');
-            return result;
+        try {
+            // Memory metrics
+            if (performance.memory) {
+                health.metrics.memory = {
+                    used: Math.round(performance.memory.usedJSHeapSize / 1024 / 1024),
+                    total: Math.round(performance.memory.totalJSHeapSize / 1024 / 1024),
+                    limit: Math.round(performance.memory.jsHeapSizeLimit / 1024 / 1024)
+                };
+                
+                if (health.metrics.memory.used > health.metrics.memory.limit * 0.8) {
+                    health.status = 'warning';
+                    health.issues.push('High memory usage');
+                }
+            }
+
+            // Cache metrics
+            health.metrics.cache = {
+                size: this.validationCache.size,
+                maxSize: this.maxCacheSize
+            };
+
+            // DOM metrics
+            if (typeof document !== 'undefined') {
+                health.metrics.dom = {
+                    elements: document.querySelectorAll('*').length,
+                    modals: document.querySelectorAll('.modal-overlay').length
+                };
+                
+                if (health.metrics.dom.elements > 5000) {
+                    health.status = 'warning';
+                    health.issues.push('High DOM element count');
+                }
+                
+                if (health.metrics.dom.modals > 2) {
+                    health.status = 'warning';
+                    health.issues.push('Multiple modals open');
+                }
+            }
+
+        } catch (error) {
+            health.status = 'error';
+            health.issues.push(`Health check failed: ${error.message}`);
         }
 
-        // Sanitize
-        result.sanitized = this.sanitizeInput(name, 50);
+        return health;
+    };
 
-        // Validate length
-        if (result.sanitized.length < 1) {
-            result.valid = false;
-            result.errors.push('Name must be at least 1 character long');
+    /**
+     * Auto-fix common validation issues
+     */
+    ValidationUtils.autoFixValidationIssues = function(data, validationType) {
+        const fixes = [];
+
+        try {
+            switch (validationType) {
+                case 'character':
+                    if (data.currentHP > data.maxHP) {
+                        data.currentHP = data.maxHP;
+                        fixes.push('Fixed current HP exceeding max HP');
+                    }
+                    
+                    if (data.currentMP && data.maxMP && data.currentMP > data.maxMP) {
+                        data.currentMP = data.maxMP;
+                        fixes.push('Fixed current MP exceeding max MP');
+                    }
+                    
+                    if (data.level < 1) {
+                        data.level = 1;
+                        fixes.push('Fixed level below minimum');
+                    }
+                    
+                    // Ensure required arrays exist
+                    if (!data.learnedSkills) {
+                        data.learnedSkills = [];
+                        fixes.push('Added missing learnedSkills array');
+                    }
+                    
+                    if (!data.masteredSkills) {
+                        data.masteredSkills = [];
+                        fixes.push('Added missing masteredSkills array');
+                    }
+                    
+                    // Fix negative stats
+                    if (data.stats) {
+                        Object.keys(data.stats).forEach(stat => {
+                            if (data.stats[stat] < 0) {
+                                data.stats[stat] = 0;
+                                fixes.push(`Fixed negative ${stat} stat`);
+                            }
+                        });
+                    }
+                    break;
+                    
+                case 'resources':
+                    Object.keys(data).forEach(resource => {
+                        if (data[resource] < 0) {
+                            data[resource] = 0;
+                            fixes.push(`Fixed negative ${resource}`);
+                        }
+                    });
+                    break;
+                    
+                case 'gameState':
+                    if (!data.resources) {
+                        data.resources = { gold: 0, materials: 0, experience: 0 };
+                        fixes.push('Added missing resources object');
+                    }
+                    
+                    if (!data.gameVersion) {
+                        data.gameVersion = '1.0.0';
+                        fixes.push('Added missing game version');
+                    }
+                    break;
+            }
+        } catch (error) {
+            console.error('Auto-fix failed:', error);
+            fixes.push(`Auto-fix error: ${error.message}`);
         }
 
-        if (result.sanitized.length > 50) {
-            result.valid = false;
-            result.errors.push('Name must be no more than 50 characters long');
+        return fixes;
+    };
+
+    /**
+     * Comprehensive game integrity check
+     */
+    ValidationUtils.performIntegrityCheck = function(gameData) {
+        console.log('🔍 Starting enhanced game integrity check...');
+        
+        const results = {
+            overall: true,
+            checks: [],
+            errors: [],
+            warnings: []
+        };
+
+        // Check game state
+        if (gameData) {
+            const gameStateCheck = this.validateGameStateEnhanced(gameData);
+            results.checks.push({
+                name: 'Game State',
+                valid: gameStateCheck.valid,
+                errors: gameStateCheck.errors,
+                warnings: gameStateCheck.warnings
+            });
+
+            if (!gameStateCheck.valid) {
+                results.overall = false;
+                results.errors.push(...gameStateCheck.errors);
+            }
+            results.warnings.push(...gameStateCheck.warnings);
         }
 
-        // Validate characters
-        if (!/^[a-zA-Z0-9\s\-_.]+$/.test(result.sanitized)) {
-            result.valid = false;
-            result.errors.push('Name contains invalid characters');
+        // Check data consistency
+        if (typeof CHARACTERS_DATA !== 'undefined') {
+            const dataConsistency = this.checkDataConsistency();
+            results.checks.push({
+                name: 'Data Consistency',
+                valid: dataConsistency.valid,
+                errors: dataConsistency.errors,
+                warnings: dataConsistency.warnings
+            });
+
+            if (!dataConsistency.valid) {
+                results.overall = false;
+                results.errors.push(...dataConsistency.errors);
+            }
+            results.warnings.push(...dataConsistency.warnings);
         }
 
-        // Check for profanity (basic check)
-        const profanityWords = ['damn', 'hell']; // Minimal list for example
-        const lowerName = result.sanitized.toLowerCase();
-        if (profanityWords.some(word => lowerName.includes(word))) {
+        // Performance check
+        const performanceCheck = this.checkPerformanceEnhanced();
+        results.checks.push({
+            name: 'Performance',
+            valid: performanceCheck.valid,
+            errors: performanceCheck.errors,
+            warnings: performanceCheck.warnings
+        });
+
+        results.warnings.push(...performanceCheck.warnings);
+
+        console.log(`✅ Enhanced integrity check complete: ${results.overall ? 'PASSED' : 'FAILED'}`);
+        console.log(`Errors: ${results.errors.length}, Warnings: ${results.warnings.length}`);
+
+        return results;
+    };
+
+    /**
+     * Check data consistency between game data files
+     */
+    ValidationUtils.checkDataConsistency = function() {
+        const result = {
+            valid: true,
+            errors: [],
+            warnings: []
+        };
+
+        try {
+            // Check character skills exist
+            if (typeof CHARACTERS_DATA !== 'undefined' && typeof SKILLS_DATA !== 'undefined') {
+                Object.entries(CHARACTERS_DATA).forEach(([charId, charData]) => {
+                    if (charData.skills) {
+                        charData.skills.forEach(skillId => {
+                            if (!SKILLS_DATA[skillId]) {
+                                result.errors.push(`Character ${charId} references missing skill: ${skillId}`);
+                                result.valid = false;
+                            }
+                        });
+                    }
+                });
+            }
+
+            // Check skill stat modifiers are valid
+            if (typeof SKILLS_DATA !== 'undefined') {
+                const validStats = ['might', 'agility', 'mind', 'spirit', 'endurance'];
+                Object.entries(SKILLS_DATA).forEach(([skillId, skillData]) => {
+                    if (skillData.statModifier && !validStats.includes(skillData.statModifier)) {
+                        result.errors.push(`Skill ${skillId} has invalid stat modifier: ${skillData.statModifier}`);
+                        result.valid = false;
+                    }
+                });
+            }
+
+            // Check dungeon enemies exist
+            if (typeof DUNGEONS_DATA !== 'undefined' && typeof ENEMIES_DATA !== 'undefined') {
+                Object.entries(DUNGEONS_DATA).forEach(([dungeonId, dungeonData]) => {
+                    if (dungeonData.possibleEnemies) {
+                        dungeonData.possibleEnemies.forEach(enemyId => {
+                            if (!ENEMIES_DATA[enemyId]) {
+                                result.warnings.push(`Dungeon ${dungeonId} references missing enemy: ${enemyId}`);
+                            }
+                        });
+                    }
+                });
+            }
+
+        } catch (error) {
             result.valid = false;
-            result.errors.push('Name contains inappropriate content');
+            result.errors.push(`Data consistency check failed: ${error.message}`);
+        }
+
+        return result;
+    };
+
+} else {
+    console.error('❌ ValidationUtils not found - cannot enhance validation system');
+}
+
+        return result;
+    }
+
+    /**
+     * Check data consistency between game data files
+     */
+    static checkDataConsistency() {
+        const result = {
+            valid: true,
+            errors: [],
+            warnings: []
+        };
+
+        try {
+            // Check character skills exist
+            if (typeof CHARACTERS_DATA !== 'undefined' && typeof SKILLS_DATA !== 'undefined') {
+                Object.entries(CHARACTERS_DATA).forEach(([charId, charData]) => {
+                    if (charData.skills) {
+                        charData.skills.forEach(skillId => {
+                            if (!SKILLS_DATA[skillId]) {
+                                result.errors.push(`Character ${charId} references missing skill: ${skillId}`);
+                                result.valid = false;
+                            }
+                        });
+                    }
+                });
+            }
+
+            // Check skill stat modifiers are valid
+            if (typeof SKILLS_DATA !== 'undefined') {
+                const validStats = ['might', 'agility', 'mind', 'spirit', 'endurance'];
+                Object.entries(SKILLS_DATA).forEach(([skillId, skillData]) => {
+                    if (skillData.statModifier && !validStats.includes(skillData.statModifier)) {
+                        result.errors.push(`Skill ${skillId} has invalid stat modifier: ${skillData.statModifier}`);
+                        result.valid = false;
+                    }
+                });
+            }
+
+            // Check dungeon enemies exist
+            if (typeof DUNGEONS_DATA !== 'undefined' && typeof ENEMIES_DATA !== 'undefined') {
+                Object.entries(DUNGEONS_DATA).forEach(([dungeonId, dungeonData]) => {
+                    if (dungeonData.possibleEnemies) {
+                        dungeonData.possibleEnemies.forEach(enemyId => {
+                            if (!ENEMIES_DATA[enemyId]) {
+                                result.warnings.push(`Dungeon ${dungeonId} references missing enemy: ${enemyId}`);
+                            }
+                        });
+                    }
+                });
+            }
+
+            // Check for duplicate IDs
+            this.checkDuplicateIds(result);
+
+        } catch (error) {
+            result.valid = false;
+            result.errors.push(`Data consistency check failed: ${error.message}`);
         }
 
         return result;
     }
 
     /**
-     * Validate numeric range
+     * Check for duplicate IDs across data sets
      */
-    static validateRange(value, min, max, fieldName = 'value') {
+    static checkDuplicateIds(result) {
+        const allIds = new Set();
+        const duplicates = [];
+
+        // Collect all IDs from different data sources
+        const dataSources = [
+            { name: 'CHARACTERS_DATA', data: typeof CHARACTERS_DATA !== 'undefined' ? CHARACTERS_DATA : {} },
+            { name: 'SKILLS_DATA', data: typeof SKILLS_DATA !== 'undefined' ? SKILLS_DATA : {} },
+            { name: 'ENEMIES_DATA', data: typeof ENEMIES_DATA !== 'undefined' ? ENEMIES_DATA : {} },
+            { name: 'DUNGEONS_DATA', data: typeof DUNGEONS_DATA !== 'undefined' ? DUNGEONS_DATA : {} }
+        ];
+
+        dataSources.forEach(source => {
+            Object.keys(source.data).forEach(id => {
+                if (allIds.has(id)) {
+                    duplicates.push(`Duplicate ID '${id}' found in ${source.name}`);
+                } else {
+                    allIds.add(id);
+                }
+            });
+        });
+
+        if (duplicates.length > 0) {
+            result.warnings.push(...duplicates);
+        }
+    }
+
+    /**
+     * Check performance metrics and memory usage
+     */
+    static checkPerformance() {
         const result = {
             valid: true,
-            errors: []
+            errors: [],
+            warnings: []
         };
 
-        if (typeof value !== 'number' || isNaN(value)) {
-            result.valid = false;
-            result.errors.push(`${fieldName} must be a valid number`);
-            return result;
-        }
+        try {
+            // Check memory usage if available
+            if (performance.memory) {
+                const memoryInfo = {
+                    used: Math.round(performance.memory.usedJSHeapSize / 1024 / 1024),
+                    total: Math.round(performance.memory.totalJSHeapSize / 1024 / 1024),
+                    limit: Math.round(performance.memory.jsHeapSizeLimit / 1024 / 1024)
+                };
 
-        if (value < min) {
-            result.valid = false;
-            result.errors.push(`${fieldName} must be at least ${min}`);
-        }
+                if (memoryInfo.used > memoryInfo.limit * 0.8) {
+                    result.warnings.push(`High memory usage: ${memoryInfo.used}MB of ${memoryInfo.limit}MB`);
+                }
 
-        if (value > max) {
-            result.valid = false;
-            result.errors.push(`${fieldName} must be no more than ${max}`);
+                if (memoryInfo.used > 100) { // 100MB threshold
+                    result.warnings.push(`Memory usage is high: ${memoryInfo.used}MB`);
+                }
+            }
+
+            // Check for large objects in global scope
+            const largeObjects = [];
+            if (typeof window !== 'undefined') {
+                Object.keys(window).forEach(key => {
+                    try {
+                        const obj = window[key];
+                        if (obj && typeof obj === 'object' && obj !== window) {
+                            const jsonSize = JSON.stringify(obj).length;
+                            if (jsonSize > 100000) { // 100KB threshold
+                                largeObjects.push(`${key}: ~${Math.round(jsonSize / 1024)}KB`);
+                            }
+                        }
+                    } catch (e) {
+                        // Skip objects that can't be stringified
+                    }
+                });
+            }
+
+            if (largeObjects.length > 0) {
+                result.warnings.push(`Large objects detected: ${largeObjects.join(', ')}`);
+            }
+
+            // Check for excessive DOM elements
+            if (typeof document !== 'undefined') {
+                const elementCount = document.querySelectorAll('*').length;
+                if (elementCount > 5000) {
+                    result.warnings.push(`High DOM element count: ${elementCount}`);
+                }
+            }
+
+            // Check for memory leaks in validation cache
+            this.cleanupCache();
+
+        } catch (error) {
+            result.warnings.push(`Performance check failed: ${error.message}`);
         }
 
         return result;
     }
 
     /**
-     * Validate email format (if needed for future features)
+     * Auto-fix common validation issues
      */
-    static validateEmail(email) {
-        const result = {
-            valid: true,
-            errors: []
-        };
+    static autoFix(data, validationType) {
+        const fixes = [];
 
-        if (typeof email !== 'string') {
-            result.valid = false;
-            result.errors.push('Email must be a string');
-            return result;
+        try {
+            switch (validationType) {
+                case 'character':
+                    if (data.currentHP > data.maxHP) {
+                        data.currentHP = data.maxHP;
+                        fixes.push('Fixed current HP exceeding max HP');
+                    }
+                    
+                    if (data.currentMP && data.maxMP && data.currentMP > data.maxMP) {
+                        data.currentMP = data.maxMP;
+                        fixes.push('Fixed current MP exceeding max MP');
+                    }
+                    
+                    if (data.level < 1) {
+                        data.level = 1;
+                        fixes.push('Fixed level below minimum');
+                    }
+                    
+                    // Ensure required arrays exist
+                    if (!data.learnedSkills) {
+                        data.learnedSkills = [];
+                        fixes.push('Added missing learnedSkills array');
+                    }
+                    
+                    if (!data.masteredSkills) {
+                        data.masteredSkills = [];
+                        fixes.push('Added missing masteredSkills array');
+                    }
+                    
+                    // Fix negative stats
+                    if (data.stats) {
+                        Object.keys(data.stats).forEach(stat => {
+                            if (data.stats[stat] < 0) {
+                                data.stats[stat] = 0;
+                                fixes.push(`Fixed negative ${stat} stat`);
+                            }
+                        });
+                    }
+                    break;
+                    
+                case 'resources':
+                    Object.keys(data).forEach(resource => {
+                        if (data[resource] < 0) {
+                            data[resource] = 0;
+                            fixes.push(`Fixed negative ${resource}`);
+                        }
+                    });
+                    break;
+                    
+                case 'gameState':
+                    if (!data.resources) {
+                        data.resources = { gold: 0, materials: 0, experience: 0 };
+                        fixes.push('Added missing resources object');
+                    }
+                    
+                    if (!data.gameVersion) {
+                        data.gameVersion = '1.0.0';
+                        fixes.push('Added missing game version');
+                    }
+                    break;
+            }
+        } catch (error) {
+            console.error('Auto-fix failed:', error);
+            fixes.push(`Auto-fix error: ${error.message}`);
         }
 
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(email)) {
-            result.valid = false;
-            result.errors.push('Invalid email format');
-        }
-
-        return result;
+        return fixes;
     }
 
     /**
@@ -644,173 +1129,420 @@ class ValidationManager {
     }
 
     /**
-     * Check data consistency between game data files
+     * Clean up validation cache to prevent memory leaks
      */
-    static checkDataConsistency() {
+    static cleanupCache() {
+        const now = Date.now();
+        
+        // Only cleanup if enough time has passed
+        if (now - this.lastCleanup < this.cleanupInterval) {
+            return;
+        }
+
+        if (this.validationCache.size > this.maxCacheSize) {
+            // Remove oldest entries
+            const entries = Array.from(this.validationCache.entries());
+            const toRemove = entries.slice(0, Math.floor(this.maxCacheSize / 2));
+            
+            toRemove.forEach(([key]) => {
+                this.validationCache.delete(key);
+            });
+            
+            console.log(`🧹 Cleaned up ${toRemove.length} validation cache entries`);
+        }
+        
+        this.lastCleanup = now;
+    }
+
+    /**
+     * Get cached validation result
+     */
+    static getCachedValidation(key) {
+        this.cleanupCache();
+        return this.validationCache.get(key);
+    }
+
+    /**
+     * Set cached validation result
+     */
+    static setCachedValidation(key, result) {
+        this.cleanupCache();
+        
+        // Add timestamp to track entry age
+        this.validationCache.set(key, {
+            ...result,
+            timestamp: Date.now()
+        });
+    }
+
+    /**
+     * Validate with caching
+     */
+    static validateWithCache(data, validationType, cacheKey = null) {
+        // Generate cache key if not provided
+        if (!cacheKey) {
+            try {
+                cacheKey = `${validationType}_${JSON.stringify(data).substring(0, 100)}`;
+            } catch (error) {
+                cacheKey = `${validationType}_${Date.now()}_${Math.random()}`;
+            }
+        }
+
+        // Check cache first
+        const cached = this.getCachedValidation(cacheKey);
+        if (cached && (Date.now() - cached.timestamp) < 60000) { // 1 minute cache
+            return cached;
+        }
+
+        // Perform validation
+        let result;
+        switch (validationType) {
+            case 'character':
+                result = this.validateCharacter(data);
+                break;
+            case 'gameState':
+                result = this.validateGameState(data);
+                break;
+            case 'resources':
+                result = this.validateResources(data);
+                break;
+            case 'stats':
+                result = this.validateStats(data);
+                break;
+            default:
+                result = { valid: false, errors: ['Unknown validation type'], warnings: [] };
+        }
+
+        // Cache result
+        this.setCachedValidation(cacheKey, result);
+        
+        return result;
+    }
+
+    /**
+     * Validate dungeon exploration state
+     */
+    static validateDungeonState(exploration) {
         const result = {
             valid: true,
             errors: [],
             warnings: []
         };
 
+        if (!exploration) {
+            return {
+                valid: false,
+                errors: ['Exploration state is null or undefined'],
+                warnings: []
+            };
+        }
+
         try {
-            // Check character skills exist
-            if (typeof CHARACTERS_DATA !== 'undefined' && typeof SKILLS_DATA !== 'undefined') {
-                Object.entries(CHARACTERS_DATA).forEach(([charId, charData]) => {
-                    charData.skills.forEach(skillId => {
-                        if (!SKILLS_DATA[skillId]) {
-                            result.errors.push(`Character ${charId} references missing skill: ${skillId}`);
+            // Check required properties
+            const requiredProps = ['party', 'dungeonType', 'state', 'dungeon'];
+            requiredProps.forEach(prop => {
+                if (!exploration.hasOwnProperty(prop)) {
+                    result.errors.push(`Missing required property: ${prop}`);
+                    result.valid = false;
+                }
+            });
+
+            // Validate party
+            if (exploration.party) {
+                if (!Array.isArray(exploration.party)) {
+                    result.errors.push('Party must be an array');
+                    result.valid = false;
+                } else if (exploration.party.length === 0) {
+                    result.errors.push('Party cannot be empty');
+                    result.valid = false;
+                } else {
+                    // Validate each party member
+                    exploration.party.forEach((member, index) => {
+                        const memberValidation = this.validateCharacter(member);
+                        if (!memberValidation.valid) {
+                            result.errors.push(`Party member ${index}: ${memberValidation.errors.join(', ')}`);
                             result.valid = false;
                         }
                     });
-                });
+                }
             }
 
-            // Check skill stat modifiers are valid
-            if (typeof SKILLS_DATA !== 'undefined') {
-                const validStats = ['might', 'agility', 'mind', 'spirit', 'endurance'];
-                Object.entries(SKILLS_DATA).forEach(([skillId, skillData]) => {
-                    if (!validStats.includes(skillData.statModifier)) {
-                        result.errors.push(`Skill ${skillId} has invalid stat modifier: ${skillData.statModifier}`);
-                        result.valid = false;
-                    }
-                });
+            // Validate state
+            const validStates = ['exploring', 'combat', 'paused', 'completed', 'retreated'];
+            if (exploration.state && !validStates.includes(exploration.state)) {
+                result.errors.push(`Invalid exploration state: ${exploration.state}`);
+                result.valid = false;
             }
 
-            // Check dungeon enemies exist
-            if (typeof DUNGEONS_DATA !== 'undefined' && typeof ENEMIES_DATA !== 'undefined') {
-                Object.entries(DUNGEONS_DATA).forEach(([dungeonId, dungeonData]) => {
-                    if (dungeonData.possibleEnemies) {
-                        dungeonData.possibleEnemies.forEach(enemyId => {
-                            if (!ENEMIES_DATA[enemyId]) {
-                                result.warnings.push(`Dungeon ${dungeonId} references missing enemy: ${enemyId}`);
-                            }
-                        });
-                    }
-                });
+            // Check for stuck states
+            if (exploration.explorationLog && exploration.explorationLog.length > 1000) {
+                result.warnings.push('Exploration log is very large, may indicate stuck state');
+            }
+
+            // Validate dungeon type
+            if (exploration.dungeonType && typeof DUNGEONS_DATA !== 'undefined') {
+                if (!DUNGEONS_DATA[exploration.dungeonType]) {
+                    result.errors.push(`Unknown dungeon type: ${exploration.dungeonType}`);
+                    result.valid = false;
+                }
             }
 
         } catch (error) {
             result.valid = false;
-            result.errors.push(`Data consistency check failed: ${error.message}`);
+            result.errors.push(`Dungeon state validation error: ${error.message}`);
         }
 
         return result;
     }
 
     /**
-     * Check performance metrics
+     * Validate combat state
      */
-    static checkPerformance() {
+    static validateCombatState(combat) {
         const result = {
             valid: true,
             errors: [],
             warnings: []
         };
 
+        if (!combat) {
+            return { valid: true }; // No combat is valid
+        }
+
         try {
-            // Check memory usage if available
-            if (performance.memory) {
-                const memoryInfo = {
-                    used: Math.round(performance.memory.usedJSHeapSize / 1024 / 1024),
-                    total: Math.round(performance.memory.totalJSHeapSize / 1024 / 1024),
-                    limit: Math.round(performance.memory.jsHeapSizeLimit / 1024 / 1024)
-                };
-
-                if (memoryInfo.used > memoryInfo.limit * 0.8) {
-                    result.warnings.push(`High memory usage: ${memoryInfo.used}MB of ${memoryInfo.limit}MB`);
+            // Check required properties
+            const requiredProps = ['party', 'enemies', 'round', 'phase'];
+            requiredProps.forEach(prop => {
+                if (!combat.hasOwnProperty(prop)) {
+                    result.errors.push(`Missing required property: ${prop}`);
+                    result.valid = false;
                 }
+            });
 
-                if (memoryInfo.used > 100) { // 100MB threshold
-                    result.warnings.push(`Memory usage is high: ${memoryInfo.used}MB`);
+            // Validate party
+            if (combat.party) {
+                if (!Array.isArray(combat.party) || combat.party.length === 0) {
+                    result.errors.push('Combat party must be a non-empty array');
+                    result.valid = false;
                 }
             }
 
-            // Check for large objects in global scope
-            const largeObjects = [];
-            if (typeof window !== 'undefined') {
-                Object.keys(window).forEach(key => {
-                    try {
-                        const obj = window[key];
-                        if (obj && typeof obj === 'object') {
-                            const jsonSize = JSON.stringify(obj).length;
-                            if (jsonSize > 100000) { // 100KB threshold
-                                largeObjects.push(`${key}: ~${Math.round(jsonSize / 1024)}KB`);
-                            }
-                        }
-                    } catch (e) {
-                        // Skip objects that can't be stringified
-                    }
-                });
+            // Validate enemies
+            if (combat.enemies) {
+                if (!Array.isArray(combat.enemies) || combat.enemies.length === 0) {
+                    result.errors.push('Combat enemies must be a non-empty array');
+                    result.valid = false;
+                }
             }
 
-            if (largeObjects.length > 0) {
-                result.warnings.push(`Large objects detected: ${largeObjects.join(', ')}`);
+            // Check for excessive rounds
+            if (combat.round > 50) {
+                result.warnings.push(`Combat has many rounds: ${combat.round}`);
+            }
+
+            if (combat.round > 100) {
+                result.errors.push('Combat has exceeded maximum rounds');
+                result.valid = false;
+            }
+
+            // Validate phase
+            const validPhases = ['player_turn', 'enemy_turn', 'resolution'];
+            if (combat.phase && !validPhases.includes(combat.phase)) {
+                result.errors.push(`Invalid combat phase: ${combat.phase}`);
+                result.valid = false;
+            }
+
+            // Check combat duration
+            if (combat.startTime) {
+                const duration = Date.now() - combat.startTime;
+                if (duration > 300000) { // 5 minutes
+                    result.warnings.push(`Combat has been running for ${Math.round(duration / 60000)} minutes`);
+                }
+                if (duration > 600000) { // 10 minutes
+                    result.errors.push('Combat has exceeded maximum duration');
+                    result.valid = false;
+                }
             }
 
         } catch (error) {
-            result.warnings.push(`Performance check failed: ${error.message}`);
+            result.valid = false;
+            result.errors.push(`Combat state validation error: ${error.message}`);
         }
 
         return result;
     }
 
     /**
-     * Auto-fix common validation issues
+     * Check for memory leaks in game objects
      */
-    static autoFix(data, validationType) {
-        const fixes = [];
+    static checkMemoryLeaks() {
+        const result = {
+            leaks: [],
+            warnings: [],
+            totalSize: 0
+        };
 
         try {
-            switch (validationType) {
-                case 'character':
-                    if (data.currentHP > data.maxHP) {
-                        data.currentHP = data.maxHP;
-                        fixes.push('Fixed currentHP exceeding maxHP');
-                    }
-                    if (data.currentMP > data.maxMP) {
-                        data.currentMP = data.maxMP;
-                        fixes.push('Fixed currentMP exceeding maxMP');
-                    }
-                    if (data.level < 1) {
-                        data.level = 1;
-                        fixes.push('Fixed invalid level');
-                    }
-                    break;
+            // Check for large arrays that might indicate leaks
+            const globalObjects = [
+                { name: 'CombatManager.combatLog', obj: window.CombatManager?.combatLog },
+                { name: 'UIManager.messageQueue', obj: window.UIManager?.messageQueue },
+                { name: 'ValidationUtils.validationCache', obj: this.validationCache }
+            ];
 
-                case 'gameState':
-                    if (data.turnsLeft < 0) {
-                        data.turnsLeft = 0;
-                        fixes.push('Fixed negative turns');
+            globalObjects.forEach(({ name, obj }) => {
+                if (obj && Array.isArray(obj)) {
+                    if (obj.length > 1000) {
+                        result.leaks.push(`${name} has ${obj.length} entries (possible memory leak)`);
+                    } else if (obj.length > 500) {
+                        result.warnings.push(`${name} has ${obj.length} entries (monitor for growth)`);
                     }
-                    if (data.resources) {
-                        Object.keys(data.resources).forEach(resource => {
-                            if (data.resources[resource] < 0) {
-                                data.resources[resource] = 0;
-                                fixes.push(`Fixed negative ${resource}`);
-                            }
-                        });
+                }
+            });
+
+            // Check for event listeners that might not be cleaned up
+            if (typeof window !== 'undefined') {
+                const eventTypes = ['click', 'keydown', 'resize', 'beforeunload'];
+                eventTypes.forEach(eventType => {
+                    const listeners = window.getEventListeners?.(document)?.[eventType];
+                    if (listeners && listeners.length > 10) {
+                        result.warnings.push(`Many ${eventType} listeners: ${listeners.length}`);
                     }
-                    break;
+                });
             }
+
+            // Check DOM for orphaned elements
+            if (typeof document !== 'undefined') {
+                const modals = document.querySelectorAll('.modal-overlay');
+                if (modals.length > 3) {
+                    result.leaks.push(`Multiple modal overlays detected: ${modals.length}`);
+                }
+
+                const intervals = setInterval(() => {}, 1000);
+                clearInterval(intervals);
+                if (intervals > 1000) {
+                    result.warnings.push(`High interval ID suggests many timers: ${intervals}`);
+                }
+            }
+
         } catch (error) {
-            fixes.push(`Auto-fix failed: ${error.message}`);
+            result.warnings.push(`Memory leak check failed: ${error.message}`);
         }
 
-        return {
-            data: data,
-            fixes: fixes
+        return result;
+    }
+
+    /**
+     * Emergency cleanup for memory issues
+     */
+    static emergencyCleanup() {
+        console.warn('🚨 Performing emergency cleanup...');
+        
+        try {
+            // Clear validation cache
+            this.validationCache.clear();
+            
+            // Force garbage collection if available
+            if (window.gc) {
+                window.gc();
+            }
+            
+            // Clear any large global arrays
+            if (window.CombatManager?.combatLog) {
+                window.CombatManager.combatLog = window.CombatManager.combatLog.slice(-10);
+            }
+            
+            // Remove orphaned modal elements
+            const modals = document.querySelectorAll('.modal-overlay');
+            modals.forEach((modal, index) => {
+                if (index > 0) { // Keep only the first modal
+                    modal.remove();
+                }
+            });
+            
+            console.log('✅ Emergency cleanup completed');
+            
+        } catch (error) {
+            console.error('Emergency cleanup failed:', error);
+        }
+    }
+
+    /**
+     * Get system health report
+     */
+    static getSystemHealth() {
+        const health = {
+            status: 'healthy',
+            issues: [],
+            metrics: {}
         };
+
+        try {
+            // Memory metrics
+            if (performance.memory) {
+                health.metrics.memory = {
+                    used: Math.round(performance.memory.usedJSHeapSize / 1024 / 1024),
+                    total: Math.round(performance.memory.totalJSHeapSize / 1024 / 1024),
+                    limit: Math.round(performance.memory.jsHeapSizeLimit / 1024 / 1024)
+                };
+                
+                if (health.metrics.memory.used > health.metrics.memory.limit * 0.8) {
+                    health.status = 'warning';
+                    health.issues.push('High memory usage');
+                }
+            }
+
+            // Cache metrics
+            health.metrics.cache = {
+                size: this.validationCache.size,
+                maxSize: this.maxCacheSize
+            };
+
+            // DOM metrics
+            if (typeof document !== 'undefined') {
+                health.metrics.dom = {
+                    elements: document.querySelectorAll('*').length,
+                    modals: document.querySelectorAll('.modal-overlay').length
+                };
+                
+                if (health.metrics.dom.elements > 5000) {
+                    health.status = 'warning';
+                    health.issues.push('High DOM element count');
+                }
+                
+                if (health.metrics.dom.modals > 2) {
+                    health.status = 'warning';
+                    health.issues.push('Multiple modals open');
+                }
+            }
+
+            // Check for memory leaks
+            const leakCheck = this.checkMemoryLeaks();
+            if (leakCheck.leaks.length > 0) {
+                health.status = 'critical';
+                health.issues.push(...leakCheck.leaks);
+            } else if (leakCheck.warnings.length > 0) {
+                if (health.status === 'healthy') {
+                    health.status = 'warning';
+                }
+                health.issues.push(...leakCheck.warnings);
+            }
+
+        } catch (error) {
+            health.status = 'error';
+            health.issues.push(`Health check failed: ${error.message}`);
+        }
+
+        return health;
     }
 }
 
 // Export for use in other modules
 if (typeof window !== 'undefined') {
-    window.ValidationManager = ValidationManager;
-    window.Validator = ValidationManager; // Shorter alias
+    window.ValidationUtils = ValidationUtils;
+    console.log('✅ Validation utilities loaded successfully');
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = ValidationManager;
+    module.exports = ValidationUtils;
 }
-    
