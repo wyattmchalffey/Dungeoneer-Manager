@@ -1,241 +1,99 @@
 /**
  * ===========================================
- * GAME MANAGER
+ * GAME MANAGER - SINGLE CHARACTER
  * ===========================================
- * Central game controller that coordinates all systems
+ * Main game controller for single character management
  */
 
 class GameManager {
-    static instance = null;
-    static isInitialized = false;
-    static gameLoop = null;
+    static gameState = null;
     static systems = {};
-
-    constructor() {
-        if (GameManager.instance) {
-            return GameManager.instance;
-        }
-        GameManager.instance = this;
-        
-        this.initializationSteps = [];
-        this.currentStep = 0;
-        this.gameState = null;
-    }
+    static isInitialized = false;
+    static eventHandlers = {};
 
     /**
-     * Initialize the entire game
+     * Initialize the game
      */
     static async initialize() {
         if (this.isInitialized) {
             console.warn('Game already initialized');
-            return;
+            return true;
         }
 
-        console.log('🎮 Initializing Game Manager...');
+        console.log('🎮 Initializing Dungeon Lords Manager - Single Character Mode...');
 
         try {
-            // Wait for all required systems to be loaded
-            await this.waitForSystems();
+            // Initialize game state
+            this.gameState = new GameState();
+            window.gameState = this.gameState;
 
-            // Create and initialize game state
-            this.initializeGameState();
+            // Load saved game if exists
+            this.gameState.load();
 
-            // Initialize all core systems
+            // Initialize systems
             await this.initializeSystems();
 
-            // Setup game loop and event handling
-            this.setupGameLoop();
+            // Setup event handling
             this.setupEventHandling();
 
             // Mark as initialized
             this.isInitialized = true;
-            
-            console.log('✅ Game Manager initialized successfully!');
 
-            // Start the game
-            this.startGame();
+            console.log('✅ Game initialization complete');
+            return true;
 
         } catch (error) {
-            console.error('❌ Failed to initialize Game Manager:', error);
-            this.handleInitializationError(error);
+            console.error('❌ Game initialization failed:', error);
+            return false;
         }
     }
 
     /**
-     * Wait for all required systems to be available
-     */
-    static async waitForSystems() {
-        const requiredSystems = [
-            'GameData',
-            'GameState', 
-            'Character',
-            'CombatManager',
-            'ActionManager',
-            'UIManager'
-        ];
-
-        const checkSystem = (systemName) => {
-            return typeof window[systemName] !== 'undefined' && window[systemName] !== null;
-        };
-
-        // Simple check since systems should already be loaded by the time GameManager initializes
-        const missing = requiredSystems.filter(sys => !checkSystem(sys));
-        if (missing.length > 0) {
-            console.warn('Some systems not yet available:', missing);
-            // Don't throw error, just log warning since ApplicationManager handles this
-        }
-
-        console.log('✅ Required systems check complete');
-    }
-
-    /**
-     * Initialize game state
-     */
-    static initializeGameState() {
-        console.log('🗃️ Initializing game state...');
-        
-        if (typeof GameState === 'undefined') {
-            throw new Error('GameState class not available');
-        }
-
-        // Use existing global game state if available, otherwise create new one
-        if (window.gameState) {
-            this.gameState = window.gameState;
-        } else {
-            window.gameState = new GameState();
-            this.gameState = window.gameState;
-        }
-
-        // Try to load existing save
-        try {
-            this.gameState.load();
-            console.log('📂 Loaded existing game state');
-        } catch (error) {
-            console.log('🆕 Starting with fresh game state');
-        }
-    }
-
-    /**
-     * Initialize all core systems
+     * Initialize game systems
      */
     static async initializeSystems() {
-        console.log('⚙️ Initializing core systems...');
+        console.log('🔧 Initializing game systems...');
 
-        // Store system references
+        // Initialize core systems
         this.systems = {
-            gameData: GameData,
-            gameState: this.gameState,
+            ui: UIManager,
+            action: ActionManager,
             combat: CombatManager,
-            actions: ActionManager,
-            ui: UIManager
+            validation: ValidationUtils
         };
 
-        // Initialize UI Manager
-        if (UIManager.initialize) {
-            UIManager.initialize();
-            console.log('✅ UI Manager initialized');
-        }
-
-        // Initialize Action Manager
-        if (ActionManager.initialize) {
-            ActionManager.initialize();
-            console.log('✅ Action Manager initialized');
-        }
-
-        // Initialize Combat Manager
-        if (CombatManager.initialize) {
-            CombatManager.initialize();
-            console.log('✅ Combat Manager initialized');
-        }
-
-        // Setup system cross-communication
-        this.setupSystemCommunication();
-    }
-
-    /**
-     * Setup communication between systems
-     */
-    static setupSystemCommunication() {
-        // Action Manager events
-        ActionManager.onActionEvent('actionCompleted', (data) => {
-            this.onActionCompleted(data);
+        // Validate system availability
+        Object.entries(this.systems).forEach(([name, system]) => {
+            if (!system) {
+                throw new Error(`Required system not available: ${name}`);
+            }
         });
 
-        // Combat Manager events
-        CombatManager.onCombatEvent('combatEnded', (data) => {
-            this.onCombatEnded(data);
-        });
-
-        // Game State events
-        if (this.gameState.onStateChanged) {
-            this.gameState.onStateChanged((data) => {
-                this.onGameStateChanged(data);
-            });
-        }
-
-        console.log('🔗 System communication setup complete');
+        console.log('🎯 Game systems initialized');
     }
 
     /**
-     * Setup game loop for continuous updates
-     */
-    static setupGameLoop() {
-        let lastUpdate = 0;
-        const targetFPS = 60;
-        const updateInterval = 1000 / targetFPS;
-
-        const gameLoop = (timestamp) => {
-            if (timestamp - lastUpdate >= updateInterval) {
-                this.update(timestamp - lastUpdate);
-                lastUpdate = timestamp;
-            }
-
-            if (this.isInitialized) {
-                this.gameLoop = requestAnimationFrame(gameLoop);
-            }
-        };
-
-        this.gameLoop = requestAnimationFrame(gameLoop);
-        console.log('🔄 Game loop started');
-    }
-
-    /**
-     * Main game update loop
-     */
-    static update(deltaTime) {
-        try {
-            // Update game state
-            if (this.gameState && this.gameState.update) {
-                this.gameState.update(deltaTime);
-            }
-
-            // Update combat system
-            if (CombatManager.currentCombat && CombatManager.update) {
-                CombatManager.update(deltaTime);
-            }
-
-            // Update UI (if needed)
-            if (UIManager.update) {
-                UIManager.update(deltaTime);
-            }
-
-            // Check for auto-save
-            this.checkAutoSave();
-
-            // Check for game end conditions
-            this.checkGameEndConditions();
-
-        } catch (error) {
-            console.error('Error in game loop:', error);
-            this.handleGameLoopError(error);
-        }
-    }
-
-    /**
-     * Setup global event handling
+     * Setup event handling
      */
     static setupEventHandling() {
-        // Handle page visibility changes
+        // Game state change events
+        document.addEventListener('gameStateChange', (event) => {
+            this.onGameStateChange(event.detail);
+        });
+
+        // Character selection events
+        document.addEventListener('characterSelected', (event) => {
+            this.onCharacterSelected(event.detail);
+        });
+
+        // Window events
+        window.addEventListener('beforeunload', () => {
+            if (this.gameState?.isDirty) {
+                this.gameState.save();
+            }
+        });
+
+        // Visibility change (pause/resume)
         document.addEventListener('visibilitychange', () => {
             if (document.hidden) {
                 this.onGamePause();
@@ -264,7 +122,7 @@ class GameManager {
      * Start the game
      */
     static startGame() {
-        console.log('🚀 Starting game...');
+        console.log('🚀 Starting single character game...');
 
         // Ensure we have access to the global game state
         this.gameState = window.gameState;
@@ -275,18 +133,18 @@ class GameManager {
         }
 
         // Show appropriate initial screen
-        if (this.gameState.party.length === 0) {
-            // New game - show character selection
+        if (!this.gameState.isCharacterReady()) {
+            // New game or no character selected - show character selection
             UIManager.showSection('characterSelectionSection');
         } else {
-            // Continuing game - show actions
+            // Continuing game with selected character - show actions
             UIManager.showSection('actionsSection');
         }
 
         // Update all displays
         UIManager.updateResourceDisplay();
         UIManager.renderCharacterGrid();
-        UIManager.renderPartyDisplay();
+        UIManager.renderCharacterDisplay();
 
         // Dispatch game ready event
         this.dispatchGameEvent('gameReady', {
@@ -294,452 +152,266 @@ class GameManager {
             systems: this.systems
         });
 
-        console.log('🎉 Game started successfully!');
+        console.log('🎉 Single character game started successfully!');
     }
 
     /**
-     * Confirm selected party and begin adventure
+     * Select and confirm character choice
      */
-    static confirmParty() {
-        if (!this.gameState.selectedCharacters || this.gameState.selectedCharacters.length !== 4) {
-            UIManager.showMessage('Please select exactly 4 characters!', 'error');
+    static confirmCharacter() {
+        if (!this.gameState.selectedCharacter) {
+            UIManager.showMessage('Please select a character!', 'error');
             return false;
         }
 
-        console.log('👥 Confirming party selection...');
+        console.log(`👤 Confirming character selection: ${this.gameState.selectedCharacter}`);
 
         try {
-            // Create character instances from selected characters
-            this.gameState.party = this.gameState.selectedCharacters.map(charId => {
-                const charData = CHARACTERS_DATA[charId];
-                if (!charData) {
-                    throw new Error(`Character data not found: ${charId}`);
-                }
-                return new Character(charData, charId);
-            });
+            // Create character instance from selected character
+            const charData = CHARACTERS_DATA[this.gameState.selectedCharacter];
+            if (!charData) {
+                throw new Error(`Character data not found: ${this.gameState.selectedCharacter}`);
+            }
+
+            const character = new Character(charData, this.gameState.selectedCharacter);
+            this.gameState.setAdventurer(character);
 
             // Show action section
             UIManager.showSection('actionsSection');
-            UIManager.renderPartyDisplay();
+            UIManager.renderCharacterDisplay();
 
             // Save game state
             this.gameState.save();
 
-            // Dispatch party ready event
-            this.dispatchGameEvent('partyReady', {
-                party: this.gameState.party
+            // Dispatch character ready event
+            this.dispatchGameEvent('characterReady', {
+                character: character
             });
 
-            UIManager.showMessage('Party confirmed! Adventure begins!', 'success');
-            console.log('✅ Party confirmed:', this.gameState.party.map(c => c.name));
+            UIManager.showMessage(`${character.name} is ready for adventure!`, 'success');
 
+            console.log('✅ Character confirmed successfully');
             return true;
 
         } catch (error) {
-            console.error('Failed to confirm party:', error);
-            UIManager.showMessage('Failed to confirm party. Please try again.', 'error');
+            console.error('Failed to confirm character:', error);
+            UIManager.showMessage(`Failed to select character: ${error.message}`, 'error');
             return false;
         }
     }
 
     /**
-     * Advance to next turn
+     * Change selected character (allows switching characters)
      */
-    static nextTurn() {
-        if (!this.gameState) return;
+    static changeCharacter() {
+        const confirm = window.confirm('Are you sure you want to change characters? Current progress will be saved but you\'ll start fresh with the new character.');
+        
+        if (!confirm) return;
 
-        console.log(`⏭️ Advancing to next turn (${this.gameState.maxTurns - this.gameState.turnsLeft + 1})`);
-
-        // Hide results section
-        UIManager.showSection('actionsSection');
-
-        // Check for final turn
-        if (this.gameState.turnsLeft <= 0) {
-            this.handleFinalTurn();
-            return;
-        }
-
-        // Check for character unlocks
-        const newUnlocks = this.gameState.checkCharacterUnlocks();
-        if (newUnlocks.length > 0) {
-            const unlockNames = newUnlocks.map(unlock => unlock.name).join(', ');
-            UIManager.showMessage(`New characters unlocked: ${unlockNames}!`, 'success');
-            UIManager.renderCharacterGrid();
-        }
-
-        // Update UI
-        UIManager.updateResourceDisplay();
-        UIManager.renderPartyDisplay();
-
-        // Auto-save
+        // Save current progress
         this.gameState.save();
 
-        this.dispatchGameEvent('turnAdvanced', {
-            currentTurn: this.gameState.maxTurns - this.gameState.turnsLeft,
-            turnsLeft: this.gameState.turnsLeft
-        });
-    }
+        // Reset character selection
+        this.gameState.selectedCharacter = null;
+        this.gameState.adventurer = null;
 
-    /**
-     * Handle final turn scenario
-     */
-    static handleFinalTurn() {
-        console.log('⚰️ Final turn reached - forcing Demon Lord encounter');
-
-        UIManager.showMessage('Time\'s up! You must face the Demon Lord now!', 'warning');
-        
-        // Force demon lord attempt after a delay
-        setTimeout(() => {
-            ActionManager.attemptDemonLord();
-        }, 2000);
-    }
-
-    /**
-     * Start a new game run (reset current progress)
-     */
-    static newRun() {
-        if (!confirm('Start a new run? Current progress will be lost.')) {
-            return;
-        }
-
-        console.log('🔄 Starting new run...');
-
-        // Reset game state
-        this.gameState.reset();
-
-        // Reset UI to character selection
+        // Show character selection screen
         UIManager.showSection('characterSelectionSection');
-        UIManager.updateResourceDisplay();
         UIManager.renderCharacterGrid();
 
-        // Clear combat log
-        UIManager.clearCombatLog();
-
-        this.dispatchGameEvent('newRunStarted', {
-            season: this.gameState.currentSeason
-        });
-
-        UIManager.showMessage(`Starting Season ${this.gameState.currentSeason}!`, 'info');
+        UIManager.showMessage('Select a new character to continue your adventure!', 'info');
     }
 
     /**
-     * Event Handlers
+     * Next turn
      */
+    static nextTurn() {
+        console.log('⏭️ Advancing to next turn...');
 
-    static onActionCompleted(data) {
-        console.log('🎬 Action completed:', data.action);
+        // Advance game state
+        this.gameState.nextTurn();
 
-        // Check for achievements
-        this.gameState.checkAchievementUnlocks();
-
-        // Update UI
-        UIManager.updateResourceDisplay();
-        UIManager.renderPartyDisplay();
-
-        // Dispatch event
-        this.dispatchGameEvent('actionCompleted', data);
-    }
-
-    static onCombatEnded(data) {
-        console.log('⚔️ Combat ended:', data.victory ? 'Victory' : 'Defeat');
-
-        // Update party display to show damage
-        UIManager.renderPartyDisplay();
-
-        // Dispatch event
-        this.dispatchGameEvent('combatEnded', data);
-    }
-
-    static onGameStateChanged(data) {
-        // Update UI when game state changes
-        UIManager.updateResourceDisplay();
-
-        // Dispatch event
-        this.dispatchGameEvent('gameStateChanged', data);
-    }
-
-    static onGamePause() {
-        console.log('⏸️ Game paused');
-
-        // Pause combat if active
-        if (CombatManager.currentCombat) {
-            CombatManager.pauseCombat();
-        }
-
-        // Save game state
-        this.gameState.save();
-
-        this.dispatchGameEvent('gamePaused', {});
-    }
-
-    static onGameResume() {
-        console.log('▶️ Game resumed');
-
-        // Resume combat if it was paused
-        if (CombatManager.currentCombat && CombatManager.currentCombat.paused) {
-            CombatManager.resumeCombat();
+        // Update character state (recovery, etc.)
+        if (this.gameState.adventurer) {
+            this.gameState.adventurer.onTurnEnd();
         }
 
         // Update displays
         UIManager.updateResourceDisplay();
-        UIManager.renderPartyDisplay();
+        UIManager.renderCharacterDisplay();
 
-        this.dispatchGameEvent('gameResumed', {});
+        // Check for new unlocks
+        this.checkForUnlocks();
+
+        // Auto-save
+        this.gameState.save();
+
+        // Show turn summary
+        this.showTurnSummary();
+
+        console.log(`📅 Turn completed. Season ${this.gameState.currentSeason}, Turn ${this.gameState.maxTurns - this.gameState.turnsLeft + 1}`);
     }
 
     /**
-     * Utility Methods
+     * Check for character/content unlocks
      */
+    static checkForUnlocks() {
+        const stats = this.gameState.statistics;
+        const adventurer = this.gameState.adventurer;
 
-    static checkAutoSave() {
-        if (!this.gameState || !this.gameState.settings?.autoSave) return;
+        // Example unlock conditions for single character mode
+        const unlockConditions = {
+            'berserker': stats.soloVictories >= 5,
+            'paladin': stats.dungeonsCompleted >= 3 && adventurer?.archetype === 'guardian',
+            'assassin': stats.enemiesDefeated >= 20 && adventurer?.archetype === 'rogue',
+            'archmage': stats.skillsLearned >= 10 && adventurer?.archetype === 'mage'
+        };
 
-        // Auto-save every 30 seconds if there are changes
-        const now = Date.now();
-        if (this.gameState.isDirty && this.gameState.isDirty() && 
-            now - this.gameState._lastSaveTime > 30000) {
+        Object.entries(unlockConditions).forEach(([charId, condition]) => {
+            if (condition && !this.gameState.unlockedCharacters.includes(charId)) {
+                this.gameState.unlockCharacter(charId);
+                UIManager.showMessage(`🔓 New character unlocked: ${CHARACTERS_DATA[charId]?.name || charId}!`, 'success');
+            }
+        });
+    }
+
+    /**
+     * Show turn summary
+     */
+    static showTurnSummary() {
+        const adventurer = this.gameState.adventurer;
+        if (!adventurer) return;
+
+        const summary = `
+            <div class="turn-summary">
+                <h3>Turn Summary</h3>
+                <div class="character-status">
+                    <h4>${adventurer.name} (Level ${adventurer.level})</h4>
+                    <div class="status-bars">
+                        <div class="health-bar">
+                            <span>Health: ${adventurer.currentHP}/${adventurer.maxHP}</span>
+                            <div class="bar">
+                                <div class="fill" style="width: ${(adventurer.currentHP / adventurer.maxHP) * 100}%"></div>
+                            </div>
+                        </div>
+                        <div class="mana-bar">
+                            <span>Mana: ${adventurer.currentMP}/${adventurer.maxMP}</span>
+                            <div class="bar">
+                                <div class="fill" style="width: ${(adventurer.currentMP / adventurer.maxMP) * 100}%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="turn-info">
+                    <p><strong>Season:</strong> ${this.gameState.currentSeason}</p>
+                    <p><strong>Turns Remaining:</strong> ${this.gameState.turnsLeft}</p>
+                    <p><strong>Total Solo Victories:</strong> ${this.gameState.statistics.soloVictories}</p>
+                </div>
+            </div>
+        `;
+
+        UIManager.showResults(summary, 'info');
+    }
+
+    /**
+     * Event handling methods
+     */
+    static onGameStateChange(detail) {
+        console.log('Game state changed:', detail);
+        UIManager.updateResourceDisplay();
+    }
+
+    static onCharacterSelected(detail) {
+        console.log('Character selected:', detail);
+        UIManager.renderCharacterGrid();
+    }
+
+    static onGamePause() {
+        console.log('Game paused');
+        if (this.gameState?.isDirty) {
             this.gameState.save();
         }
     }
 
-    static checkGameEndConditions() {
-        if (!this.gameState) return;
-
-        // Check for ultimate victory
-        if (this.gameState.statistics.victoriesAgainstDemonLord > 0) {
-            this.handleUltimateVictory();
-        }
-
-        // Check for game over conditions
-        if (this.gameState.turnsLeft <= 0 && 
-            this.gameState.party.every(char => !char.isAlive())) {
-            this.handleGameOver();
+    static onGameResume() {
+        console.log('Game resumed');
+        // Update displays in case data changed while away
+        if (this.gameState) {
+            UIManager.updateResourceDisplay();
+            UIManager.renderCharacterDisplay();
         }
     }
 
-    static handleUltimateVictory() {
-        console.log('🏆 Ultimate Victory achieved!');
-        
-        UIManager.showMessage('Congratulations! You have saved the realm!', 'success');
-        
-        this.dispatchGameEvent('ultimateVictory', {
-            season: this.gameState.currentSeason,
-            turnsUsed: this.gameState.maxTurns - this.gameState.turnsLeft
-        });
-
-        // Offer to start new game+
-        setTimeout(() => {
-            if (confirm('You have achieved ultimate victory! Start a new run with increased difficulty?')) {
-                this.newRun();
-            }
-        }, 3000);
-    }
-
-    static handleGameOver() {
-        console.log('💀 Game Over');
-        
-        UIManager.showMessage('Game Over! Your party has fallen and time has run out.', 'error');
-        
-        this.dispatchGameEvent('gameOver', {
-            season: this.gameState.currentSeason,
-            turnsUsed: this.gameState.maxTurns - this.gameState.turnsLeft
-        });
-
-        // Offer to start new run
-        setTimeout(() => {
-            if (confirm('Game Over! Start a new run?')) {
-                this.newRun();
-            }
-        }, 2000);
-    }
-
+    /**
+     * Error handling
+     */
     static handleError(error) {
-        console.error('🚨 Game error occurred:', error);
-
-        // Try to save game state before handling error
-        try {
-            if (this.gameState) {
-                this.gameState.save();
-            }
-        } catch (saveError) {
-            console.error('Failed to save during error handling:', saveError);
-        }
-
+        console.error('Game error:', error);
+        
         // Show user-friendly error message
         UIManager.showMessage(
-            'An error occurred. Game progress has been saved. Please refresh if problems persist.',
-            'error',
-            5000
+            'An error occurred. The game has been saved and should continue normally.',
+            'error'
         );
 
-        this.dispatchGameEvent('gameError', { error });
-    }
-
-    static handleGameLoopError(error) {
-        console.error('Game loop error:', error);
-        
-        // Attempt to recover by pausing the game loop temporarily
-        if (this.gameLoop) {
-            cancelAnimationFrame(this.gameLoop);
-            this.gameLoop = null;
-        }
-
-        // Restart game loop after a delay
-        setTimeout(() => {
-            if (this.isInitialized) {
-                this.setupGameLoop();
-            }
-        }, 1000);
-    }
-
-    static handleInitializationError(error) {
-        console.error('💥 Critical initialization error:', error);
-
-        // Show error screen
-        const container = document.querySelector('.container');
-        if (container) {
-            container.innerHTML = `
-                <div class="error-screen" style="text-align: center; padding: 50px;">
-                    <h1>⚠️ Failed to Load Game</h1>
-                    <p>Sorry, the game failed to initialize properly.</p>
-                    <p><strong>Error:</strong> ${error.message}</p>
-                    <br>
-                    <button class="btn" onclick="location.reload()">🔄 Retry</button>
-                    <button class="btn btn-secondary" onclick="localStorage.clear(); location.reload()">
-                        🗑️ Clear Data & Retry
-                    </button>
-                </div>
-            `;
+        // Auto-save on error to prevent data loss
+        if (this.gameState) {
+            this.gameState.save();
         }
     }
 
     /**
-     * Event System
+     * Dispatch custom game events
      */
-
-    static gameEventListeners = {};
-
-    static addEventListener(event, callback) {
-        if (!this.gameEventListeners[event]) {
-            this.gameEventListeners[event] = [];
-        }
-        this.gameEventListeners[event].push(callback);
-    }
-
-    static removeEventListener(event, callback) {
-        if (this.gameEventListeners[event]) {
-            this.gameEventListeners[event] = this.gameEventListeners[event]
-                .filter(cb => cb !== callback);
-        }
-    }
-
-    static dispatchGameEvent(event, data) {
-        if (this.gameEventListeners[event]) {
-            this.gameEventListeners[event].forEach(callback => {
-                try {
-                    callback(data);
-                } catch (error) {
-                    console.error(`Error in event listener for ${event}:`, error);
-                }
-            });
-        }
-
-        // Also dispatch as DOM event for external systems
-        if (typeof window !== 'undefined') {
-            window.dispatchEvent(new CustomEvent(event, { detail: data }));
-        }
+    static dispatchGameEvent(eventName, detail = {}) {
+        const event = new CustomEvent(eventName, { detail });
+        document.dispatchEvent(event);
     }
 
     /**
-     * Debug and Development Methods
+     * Register event handler
      */
+    static on(eventName, handler) {
+        if (!this.eventHandlers[eventName]) {
+            this.eventHandlers[eventName] = [];
+        }
+        this.eventHandlers[eventName].push(handler);
+    }
+
+    /**
+     * Game state queries
+     */
+    static isGameReady() {
+        return this.isInitialized && this.gameState && this.gameState.isCharacterReady();
+    }
 
     static getGameState() {
         return this.gameState;
     }
 
-    static getSystems() {
-        return this.systems;
-    }
-
-    static getGameStats() {
-        return {
-            initialized: this.isInitialized,
-            currentSection: UIManager.currentSection,
-            party: this.gameState?.party?.length || 0,
-            turnsLeft: this.gameState?.turnsLeft || 0,
-            season: this.gameState?.currentSeason || 1,
-            systems: Object.keys(this.systems),
-            gameLoopActive: !!this.gameLoop
-        };
-    }
-
-    static debugSkipToFinal() {
-        if (!DEBUG_CONFIG?.ENABLED) return;
-        
-        console.log('🐛 Debug: Skipping to final battle');
-        this.gameState.turnsLeft = 1;
-        UIManager.updateResourceDisplay();
-        UIManager.showMessage('Debug: Skipped to final turn!', 'warning');
-    }
-
-    static debugAddResources(gold = 1000, materials = 500) {
-        if (!DEBUG_CONFIG?.ENABLED) return;
-        
-        this.gameState.addResource('gold', gold);
-        this.gameState.addResource('materials', materials);
-        UIManager.updateResourceDisplay();
-        UIManager.showMessage(`Debug: Added ${gold} gold, ${materials} materials`, 'info');
-    }
-
-    static debugUnlockAllCharacters() {
-        if (!DEBUG_CONFIG?.ENABLED) return;
-        
-        Object.keys(CHARACTERS_DATA).forEach(charId => {
-            this.gameState.unlockCharacter(charId);
-        });
-        UIManager.renderCharacterGrid();
-        UIManager.showMessage('Debug: All characters unlocked!', 'info');
+    static getAdventurer() {
+        return this.gameState?.adventurer;
     }
 
     /**
-     * Cleanup
+     * Reset game
      */
-    static destroy() {
-        console.log('🧹 Cleaning up Game Manager...');
-
-        this.isInitialized = false;
-
-        // Stop game loop
-        if (this.gameLoop) {
-            cancelAnimationFrame(this.gameLoop);
-            this.gameLoop = null;
-        }
-
-        // Clear event listeners
-        this.gameEventListeners = {};
-
-        // Save final state
+    static resetGame() {
         if (this.gameState) {
-            this.gameState.save();
+            const success = this.gameState.reset();
+            if (success) {
+                // Restart the game
+                UIManager.showSection('characterSelectionSection');
+                UIManager.renderCharacterGrid();
+                UIManager.updateResourceDisplay();
+                UIManager.showMessage('Game reset successfully!', 'success');
+            }
         }
-
-        console.log('✅ Game Manager cleanup complete');
     }
 }
 
-// Auto-initialize when explicitly called (not automatically)
+// Export for use in other modules
 if (typeof window !== 'undefined') {
-    // Make GameManager globally accessible
     window.GameManager = GameManager;
-    
-    // Cleanup on page unload
-    window.addEventListener('beforeunload', () => {
-        GameManager.destroy();
-    });
-}
-
-// Export for Node.js environments
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = GameManager;
+    console.log('✅ Single Character GameManager loaded successfully');
 }

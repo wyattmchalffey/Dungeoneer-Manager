@@ -1,675 +1,642 @@
 /**
  * ===========================================
- * MAIN APPLICATION ENTRY POINT
+ * MAIN APPLICATION ENTRY POINT - SOLO EDITION
  * ===========================================
- * Coordinates initialization and manages application lifecycle
+ * Initialize and start the single character dungeon management game
  */
 
-// Application configuration
-const APP_CONFIG = {
-    version: '1.0.0-MVP',
-    debug: true,
-    autoSave: true,
-    autoSaveInterval: 30000, // 30 seconds
-    maxSaveSlots: 5,
-    defaultSettings: {
-        soundEnabled: true,
-        musicEnabled: true,
-        animationSpeed: 1.0,
-        autoAdvanceCombat: true,
-        showDetailedLogs: true
-    }
-};
+// Application state
+let gameInitialized = false;
+let loadingTimeout = null;
 
-// Application state manager
-class ApplicationManager {
-    constructor() {
-        this.initialized = false;
-        this.loadingSteps = [];
-        this.currentStep = 0;
-        this.settings = { ...APP_CONFIG.defaultSettings };
-        this.autoSaveTimer = null;
-    }
-
-    /**
-     * Initialize the entire application
-     */
-    async initialize() {
-        console.log(`🚀 Initializing Dungeon Lords Manager v${APP_CONFIG.version}`);
+/**
+ * Initialize the application
+ */
+async function initializeApp() {
+    console.log('🚀 Starting Dungeon Lords Manager - Solo Edition...');
+    
+    try {
+        showLoadingScreen();
         
-        try {
-            // Show loading screen
-            UIManager.showLoadingScreen();
-            
-            // Define loading steps
-            this.loadingSteps = [
-                { name: 'Loading game data...', action: () => this.waitForGameData() },
-                { name: 'Initializing game systems...', action: () => this.initializeCoreSystems() },
-                { name: 'Setting up user interface...', action: () => this.initializeUI() },
-                { name: 'Loading saved progress...', action: () => this.loadGameState() },
-                { name: 'Finalizing setup...', action: () => this.finalizeInitialization() }
-            ];
-            
-            // Execute loading steps
-            for (let i = 0; i < this.loadingSteps.length; i++) {
-                this.currentStep = i;
-                this.updateLoadingProgress();
-                
-                console.log(`📋 ${this.loadingSteps[i].name}`);
-                await this.loadingSteps[i].action();
-                
-                // Small delay for visual feedback
-                await this.delay(200);
-            }
-            
-            // Hide loading screen and start game
-            UIManager.hideLoadingScreen();
-            this.startGame();
-            
-            console.log('✅ Application initialized successfully!');
-            
-        } catch (error) {
-            console.error('❌ Failed to initialize application:', error);
-            this.handleInitializationError(error);
-        }
-    }
-
-    /**
-     * Wait for game data to be loaded
-     */
-    async waitForGameData() {
-        return new Promise((resolve, reject) => {
-            let attempts = 0;
-            const maxAttempts = 50; // 5 seconds total
-            
-            const checkData = () => {
-                attempts++;
-                
-                // Check if all required data is loaded
-                const requiredData = [
-                    'CHARACTERS_DATA', 
-                    'SKILLS_DATA', 
-                    'DUNGEONS_DATA', 
-                    'ENEMIES_DATA'
-                ];
-                
-                const allLoaded = requiredData.every(dataName => 
-                    typeof window[dataName] !== 'undefined' && window[dataName] !== null
-                );
-                
-                if (allLoaded) {
-                    // Initialize GameData if it exists
-                    if (typeof initializeGameData === 'function') {
-                        initializeGameData();
-                    }
-                    resolve();
-                } else if (attempts >= maxAttempts) {
-                    const missing = requiredData.filter(name => 
-                        typeof window[name] === 'undefined'
-                    );
-                    reject(new Error(`Required data not loaded after ${maxAttempts * 100}ms: ${missing.join(', ')}`));
-                } else {
-                    setTimeout(checkData, 100);
-                }
-            };
-            
-            checkData();
-        });
-    }
-
-    /**
-     * Initialize core game systems
-     */
-    async initializeCoreSystems() {
-        // Wait for all required classes to be loaded
-        const requiredClasses = [
-            'GameState',
-            'Character', 
-            'CombatManager',
-            'ActionManager',
-            'UIManager',
-            'GameManager',
-            'ValidationManager'
-        ];
-        
-        let attempts = 0;
-        const maxAttempts = 100; // Increased from 50
-        
-        return new Promise((resolve, reject) => {
-            const checkClasses = () => {
-                attempts++;
-                
-                // Check each class individually for better debugging
-                const classStatus = {};
-                requiredClasses.forEach(className => {
-                    classStatus[className] = typeof window[className] !== 'undefined' && window[className] !== null;
-                });
-                
-                console.log('Class loading status:', classStatus);
-                
-                const allLoaded = Object.values(classStatus).every(loaded => loaded);
-                
-                if (allLoaded) {
-                    console.log('✅ All required classes found, initializing systems...');
-                    
-                    // Initialize global game state
-                    window.gameState = new GameState();
-                    
-                    // Initialize core managers that have initialize methods
-                    if (CombatManager.initialize) {
-                        CombatManager.initialize();
-                    }
-                    
-                    if (ActionManager.initialize) {
-                        ActionManager.initialize();
-                    } else {
-                        // ActionManager doesn't need initialization, just create instance
-                        if (!ActionManager.instance) {
-                            ActionManager.instance = new ActionManager();
-                        }
-                    }
-                    
-                    if (ValidationManager.initialize) {
-                        ValidationManager.initialize();
-                    } else {
-                        // ValidationManager doesn't need initialization, just create instance
-                        if (!ValidationManager.instance) {
-                            ValidationManager.instance = new ValidationManager();
-                        }
-                    }
-                    
-                    // Set up auto-save if enabled
-                    if (APP_CONFIG.autoSave) {
-                        this.setupAutoSave();
-                    }
-                    
-                    console.log('✅ All core systems loaded successfully');
-                    resolve();
-                } else if (attempts >= maxAttempts) {
-                    const missing = requiredClasses.filter(name => 
-                        typeof window[name] === 'undefined'
-                    );
-                    
-                    // Show detailed error info
-                    console.error('Missing classes after', maxAttempts, 'attempts:');
-                    console.error('Missing:', missing);
-                    console.error('Available classes:', Object.keys(window).filter(key => 
-                        typeof window[key] === 'function' && key.match(/^[A-Z]/)
-                    ));
-                    
-                    // Try to create a minimal ActionManager if it's the only missing piece
-                    if (missing.length === 1 && missing[0] === 'ActionManager') {
-                        console.log('🔧 Creating fallback ActionManager...');
-                        window.ActionManager = class ActionManager {
-                            static instance = null;
-                            static initialize() { return true; }
-                            static validateAction() { return { valid: true }; }
-                            static getAvailableActions() { return []; }
-                            static trainParty() { console.log('ActionManager fallback - trainParty'); }
-                            static exploreDungeon() { console.log('ActionManager fallback - exploreDungeon'); }
-                            static rest() { console.log('ActionManager fallback - rest'); }
-                            static buyEquipment() { console.log('ActionManager fallback - buyEquipment'); }
-                            static attemptDemonLord() { console.log('ActionManager fallback - attemptDemonLord'); }
-                            static onActionEvent() {}
-                            constructor() {
-                                if (ActionManager.instance) return ActionManager.instance;
-                                ActionManager.instance = this;
-                            }
-                        };
-                        ActionManager.instance = new ActionManager();
-                        
-                        // Try again with fallback
-                        setTimeout(checkClasses, 100);
-                        return;
-                    }
-                    
-                    reject(new Error(`Required systems not loaded: ${missing.join(', ')}`));
-                } else {
-                    // Wait a bit longer between checks
-                    setTimeout(checkClasses, 200);
-                }
-            };
-            
-            checkClasses();
-        });
-    }
-
-    /**
-     * Initialize user interface
-     */
-    async initializeUI() {
-        return new Promise((resolve, reject) => {
-            let attempts = 0;
-            const maxAttempts = 30;
-            
-            const checkUI = () => {
-                attempts++;
-                
-                if (typeof UIManager !== 'undefined' && UIManager !== null) {
-                    try {
-                        UIManager.initialize();
-                        this.setupEventListeners();
-                        console.log('✅ UI Manager initialized');
-                        resolve();
-                    } catch (error) {
-                        reject(new Error(`UI initialization failed: ${error.message}`));
-                    }
-                } else if (attempts >= maxAttempts) {
-                    reject(new Error('UIManager not loaded within timeout'));
-                } else {
-                    setTimeout(checkUI, 100);
-                }
-            };
-            
-            checkUI();
-        });
-    }
-
-    /**
-     * Load saved game state
-     */
-    async loadGameState() {
-        try {
-            if (typeof gameState !== 'undefined') {
-                gameState.load();
-            }
-        } catch (error) {
-            console.warn('⚠️ Could not load saved game state:', error);
-            // Continue with fresh state
-        }
-    }
-
-    /**
-     * Finalize initialization
-     */
-    async finalizeInitialization() {
-        // Set up error handling
-        this.setupErrorHandling();
-        
-        // Register service worker if available
-        this.registerServiceWorker();
-        
-        // Mark as initialized
-        this.initialized = true;
-    }
-
-    /**
-     * Start the main game
-     */
-    startGame() {
-        console.log('🎮 Starting game...');
-        
-        // Ensure gameState is available globally
-        if (!window.gameState) {
-            console.error('Game state not available');
-            return;
+        // Step 1: Validate browser compatibility
+        updateLoadingStatus('Checking browser compatibility...');
+        if (!validateBrowserSupport()) {
+            throw new Error('Browser not supported');
         }
         
-        // Initialize game manager if available, but don't call GameManager.initialize()
-        // since we've already set up all the systems
-        if (typeof GameManager !== 'undefined') {
-            // Set up GameManager's reference to game state
-            GameManager.gameState = window.gameState;
-            
-            // Start the game through GameManager
-            GameManager.startGame();
-        } else {
-            console.error('GameManager not available');
-            // Fallback: start UI directly
-            if (typeof UIManager !== 'undefined') {
-                UIManager.showSection('characterSelectionSection');
-                UIManager.updateResourceDisplay();
-                UIManager.renderCharacterGrid();
-                UIManager.renderPartyDisplay();
-            }
-        }
+        // Step 2: Initialize core systems
+        updateLoadingStatus('Loading game systems...');
+        await initializeSystems();
         
-        // Dispatch game ready event
-        window.dispatchEvent(new CustomEvent('gameReady'));
+        // Step 3: Load game data
+        updateLoadingStatus('Loading character data...');
+        validateGameData();
         
-        // Track initialization time
-        if (APP_CONFIG.debug) {
-            console.log(`⏱️ Total initialization time: ${performance.now()}ms`);
-        }
-    }
-
-    /**
-     * Update loading progress
-     */
-    updateLoadingProgress() {
-        if (this.loadingSteps[this.currentStep]) {
-            UIManager.updateLoadingProgress(this.loadingSteps[this.currentStep].name);
-        }
-    }
-
-    /**
-     * Setup auto-save functionality
-     */
-    setupAutoSave() {
-        if (this.autoSaveTimer) {
-            clearInterval(this.autoSaveTimer);
-        }
+        // Step 4: Initialize UI
+        updateLoadingStatus('Setting up interface...');
+        await initializeUI();
         
-        this.autoSaveTimer = setInterval(() => {
-            if (typeof gameState !== 'undefined' && this.initialized) {
-                try {
-                    gameState.save();
-                    if (APP_CONFIG.debug) {
-                        console.log('💾 Auto-save completed');
-                    }
-                } catch (error) {
-                    console.error('❌ Auto-save failed:', error);
-                }
-            }
-        }, APP_CONFIG.autoSaveInterval);
+        // Step 5: Start game
+        updateLoadingStatus('Starting your adventure...');
+        await startGame();
         
-        console.log(`💾 Auto-save enabled (${APP_CONFIG.autoSaveInterval / 1000}s interval)`);
-    }
-
-    /**
-     * Setup global event listeners
-     */
-    setupEventListeners() {
-        // Handle page visibility changes for mobile
-        document.addEventListener('visibilitychange', () => {
-            if (document.hidden) {
-                this.onApplicationPause();
-            } else {
-                this.onApplicationResume();
-            }
-        });
-
-        // Handle beforeunload to save game
-        window.addEventListener('beforeunload', (event) => {
-            this.onApplicationExit();
-        });
-
-        // Handle orientation changes on mobile
-        window.addEventListener('orientationchange', () => {
-            setTimeout(() => this.onOrientationChange(), 100);
-        });
-
-        // Handle resize events
-        window.addEventListener('resize', () => {
-            this.onWindowResize();
-        });
-
-        // Setup keyboard shortcuts
-        this.setupKeyboardShortcuts();
-    }
-
-    /**
-     * Setup keyboard shortcuts
-     */
-    setupKeyboardShortcuts() {
-        document.addEventListener('keydown', (e) => {
-            // Only handle shortcuts when not typing in input fields
-            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
-                return;
-            }
-
-            switch (e.code) {
-                case 'KeyT':
-                    if (typeof ActionManager !== 'undefined') {
-                        ActionManager.trainParty();
-                    }
-                    break;
-                case 'KeyE':
-                    if (typeof ActionManager !== 'undefined') {
-                        ActionManager.exploreDungeon();
-                    }
-                    break;
-                case 'KeyR':
-                    if (typeof ActionManager !== 'undefined') {
-                        ActionManager.rest();
-                    }
-                    break;
-                case 'KeyB':
-                    if (typeof ActionManager !== 'undefined') {
-                        ActionManager.buyEquipment();
-                    }
-                    break;
-                case 'KeyD':
-                    if (e.shiftKey && typeof ActionManager !== 'undefined') {
-                        ActionManager.attemptDemonLord();
-                    }
-                    break;
-                case 'F1':
-                    e.preventDefault();
-                    UIManager.showHelp();
-                    break;
-                case 'Escape':
-                    UIManager.showGameMenu();
-                    break;
-            }
-        });
-    }
-
-    /**
-     * Setup error handling
-     */
-    setupErrorHandling() {
-        window.addEventListener('error', (e) => {
-            console.error('🚨 Uncaught error:', e.error);
-            this.handleError(e.error);
-        });
-
-        window.addEventListener('unhandledrejection', (e) => {
-            console.error('🚨 Unhandled promise rejection:', e.reason);
-            this.handleError(e.reason);
-        });
-    }
-
-    /**
-     * Register service worker for offline functionality
-     */
-    registerServiceWorker() {
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/sw.js')
-                .then(registration => {
-                    console.log('📱 Service Worker registered:', registration.scope);
-                })
-                .catch(error => {
-                    console.log('📱 Service Worker registration failed:', error);
-                });
-        }
-    }
-
-    /**
-     * Handle application pause (mobile background, tab switch)
-     */
-    onApplicationPause() {
-        console.log('⏸️ Application paused');
+        // All done!
+        hideLoadingScreen();
+        gameInitialized = true;
         
-        // Save game state
-        if (typeof gameState !== 'undefined') {
-            gameState.save();
-        }
+        console.log('✅ Application initialized successfully!');
         
-        // Pause any running animations or timers
-        if (typeof CombatManager !== 'undefined' && CombatManager.currentCombat) {
-            CombatManager.pauseCombat();
-        }
-    }
-
-    /**
-     * Handle application resume
-     */
-    onApplicationResume() {
-        console.log('▶️ Application resumed');
-        
-        // Reload game state
-        if (typeof gameState !== 'undefined') {
-            gameState.load();
-        }
-        
-        // Update UI
-        if (typeof UIManager !== 'undefined') {
-            UIManager.updateResourceDisplay();
-            UIManager.renderPartyDisplay();
-        }
-    }
-
-    /**
-     * Handle application exit
-     */
-    onApplicationExit() {
-        console.log('👋 Application exiting');
-        
-        // Final save
-        if (typeof gameState !== 'undefined') {
-            gameState.save();
-        }
-        
-        // Clear auto-save timer
-        if (this.autoSaveTimer) {
-            clearInterval(this.autoSaveTimer);
-        }
-    }
-
-    /**
-     * Handle orientation changes on mobile
-     */
-    onOrientationChange() {
-        console.log('🔄 Orientation changed');
-        
-        // Trigger UI reflow
-        if (typeof UIManager !== 'undefined') {
-            UIManager.handleOrientationChange();
-        }
-    }
-
-    /**
-     * Handle window resize
-     */
-    onWindowResize() {
-        // Debounce resize events
-        if (this.resizeTimer) {
-            clearTimeout(this.resizeTimer);
-        }
-        
-        this.resizeTimer = setTimeout(() => {
-            if (typeof UIManager !== 'undefined') {
-                UIManager.handleResize();
-            }
-        }, 250);
-    }
-
-    /**
-     * Handle initialization errors
-     */
-    handleInitializationError(error) {
-        console.error('💥 Critical initialization error:', error);
-        
-        // Show error screen with more details
-        const container = document.querySelector('.container');
-        if (container) {
-            // Check what systems are actually loaded
-            const systemStatus = [
-                'CHARACTERS_DATA',
-                'SKILLS_DATA', 
-                'DUNGEONS_DATA',
-                'GameState',
-                'Character',
-                'CombatManager',
-                'ActionManager',
-                'UIManager',
-                'GameManager'
-            ].map(system => {
-                const loaded = typeof window[system] !== 'undefined';
-                return `${system}: ${loaded ? '✅' : '❌'}`;
-            }).join('<br>');
-            
-            container.innerHTML = `
-                <div class="error-screen" style="text-align: center; padding: 50px; color: #fff;">
-                    <h1>⚠️ Failed to Load Game</h1>
-                    <p>Sorry, the game failed to initialize properly.</p>
-                    <p><strong>Error:</strong> ${error.message}</p>
-                    <br>
-                    <details style="margin: 20px 0; text-align: left; max-width: 600px; margin-left: auto; margin-right: auto;">
-                        <summary style="cursor: pointer; margin-bottom: 10px;"><strong>System Status</strong></summary>
-                        <div style="background: rgba(0,0,0,0.5); padding: 15px; border-radius: 5px; font-family: monospace; font-size: 12px;">
-                            ${systemStatus}
-                        </div>
-                    </details>
-                    <br>
-                    <button class="btn" onclick="location.reload()" style="background: #3282b8; color: white; border: none; padding: 10px 20px; border-radius: 5px; margin: 5px;">
-                        🔄 Retry
-                    </button>
-                    <button class="btn" onclick="localStorage.clear(); location.reload()" style="background: #666; color: white; border: none; padding: 10px 20px; border-radius: 5px; margin: 5px;">
-                        🗑️ Clear Data & Retry
-                    </button>
-                </div>
-            `;
-        }
-    }
-
-    /**
-     * Handle runtime errors
-     */
-    handleError(error) {
-        // Log error details
-        if (APP_CONFIG.debug) {
-            console.error('Error details:', {
-                message: error.message,
-                stack: error.stack,
-                timestamp: new Date().toISOString()
-            });
-        }
-        
-        // Show user-friendly error message
-        if (typeof UIManager !== 'undefined') {
-            UIManager.showMessage(
-                'An error occurred. The game has been saved and will continue.',
-                'error'
-            );
-        }
-        
-        // Auto-save in case of error
-        if (typeof gameState !== 'undefined') {
-            try {
-                gameState.save();
-            } catch (saveError) {
-                console.error('Failed to save after error:', saveError);
-            }
-        }
-    }
-
-    /**
-     * Utility function for delays
-     */
-    delay(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms));
+    } catch (error) {
+        console.error('❌ Failed to initialize application:', error);
+        showErrorMessage(`Failed to start game: ${error.message}`);
+        hideLoadingScreen();
     }
 }
 
-// Global application instance
-let app = null;
+/**
+ * Validate browser support
+ */
+function validateBrowserSupport() {
+    const requiredFeatures = [
+        'localStorage',
+        'JSON',
+        'Promise',
+        'fetch'
+    ];
+    
+    for (const feature of requiredFeatures) {
+        if (typeof window[feature] === 'undefined') {
+            console.error(`Missing required feature: ${feature}`);
+            return false;
+        }
+    }
+    
+    // Check for modern JavaScript features
+    try {
+        eval('const test = () => {}');
+        eval('const {x} = {x: 1}');
+        eval('const arr = [1, 2, 3]; const [a, ...rest] = arr;');
+    } catch (e) {
+        console.error('Browser does not support modern JavaScript features');
+        return false;
+    }
+    
+    console.log('✅ Browser compatibility check passed');
+    return true;
+}
 
 /**
- * Initialize application when DOM is ready
+ * Initialize core game systems
  */
-function initializeApplication() {
-    app = new ApplicationManager();
-    app.initialize().catch(error => {
-        console.error('Failed to initialize application:', error);
+async function initializeSystems() {
+    console.log('🔧 Initializing core systems...');
+    
+    // Initialize systems in dependency order
+    const systems = [
+        { name: 'Helpers', instance: Helpers, required: true },
+        { name: 'ValidationUtils', instance: ValidationUtils, required: true },
+        { name: 'GameState', instance: GameState, required: true },
+        { name: 'GameManager', instance: GameManager, required: true },
+        { name: 'UIManager', instance: UIManager, required: true },
+        { name: 'ActionManager', instance: ActionManager, required: true },
+        { name: 'CombatManager', instance: CombatManager, required: false }
+    ];
+    
+    for (const system of systems) {
+        try {
+            if (system.instance && typeof system.instance.initialize === 'function') {
+                await system.instance.initialize();
+                console.log(`✅ ${system.name} initialized`);
+            } else if (system.required) {
+                console.warn(`⚠️ ${system.name} does not have initialize method`);
+            }
+        } catch (error) {
+            if (system.required) {
+                throw new Error(`Failed to initialize ${system.name}: ${error.message}`);
+            } else {
+                console.warn(`⚠️ Optional system ${system.name} failed to initialize:`, error);
+            }
+        }
+    }
+    
+    console.log('✅ Core systems initialized');
+}
+
+/**
+ * Validate game data integrity
+ */
+function validateGameData() {
+    console.log('🔍 Validating game data...');
+    
+    // Check required data objects
+    const requiredData = [
+        { name: 'CHARACTERS_DATA', data: window.CHARACTERS_DATA },
+        { name: 'SKILLS_DATA', data: window.SKILLS_DATA },
+        { name: 'DUNGEONS_DATA', data: window.DUNGEONS_DATA }
+    ];
+    
+    for (const dataObj of requiredData) {
+        if (!dataObj.data || typeof dataObj.data !== 'object') {
+            throw new Error(`Missing required game data: ${dataObj.name}`);
+        }
+        
+        if (Object.keys(dataObj.data).length === 0) {
+            throw new Error(`Empty game data: ${dataObj.name}`);
+        }
+    }
+    
+    // Validate character data structure
+    Object.entries(CHARACTERS_DATA).forEach(([charId, charData]) => {
+        const requiredFields = ['name', 'archetype', 'aptitudes', 'baseStats', 'skills'];
+        for (const field of requiredFields) {
+            if (!charData[field]) {
+                throw new Error(`Character ${charId} missing required field: ${field}`);
+            }
+        }
+    });
+    
+    // Validate skill references in characters
+    Object.entries(CHARACTERS_DATA).forEach(([charId, charData]) => {
+        if (charData.skills) {
+            charData.skills.forEach(skillId => {
+                if (!SKILLS_DATA[skillId]) {
+                    console.warn(`Character ${charId} references unknown skill: ${skillId}`);
+                }
+            });
+        }
+    });
+    
+    console.log('✅ Game data validation complete');
+}
+
+/**
+ * Initialize user interface
+ */
+async function initializeUI() {
+    console.log('🎨 Initializing user interface...');
+    
+    // Initialize UI Manager
+    if (UIManager && typeof UIManager.initialize === 'function') {
+        await UIManager.initialize();
+    }
+    
+    // Setup global event handlers
+    setupGlobalEventHandlers();
+    
+    // Setup keyboard shortcuts
+    setupKeyboardShortcuts();
+    
+    // Initialize tooltips and help system
+    initializeTooltips();
+    
+    console.log('✅ User interface initialized');
+}
+
+/**
+ * Setup global event handlers
+ */
+function setupGlobalEventHandlers() {
+    // Handle window resize
+    window.addEventListener('resize', debounce(() => {
+        if (gameInitialized && UIManager) {
+            UIManager.handleResize?.();
+        }
+    }, 250));
+    
+    // Handle visibility change (tab focus/blur)
+    document.addEventListener('visibilitychange', () => {
+        if (gameInitialized && GameManager) {
+            if (document.hidden) {
+                GameManager.onGamePause?.();
+            } else {
+                GameManager.onGameResume?.();
+            }
+        }
+    });
+    
+    // Handle before unload (save on exit)
+    window.addEventListener('beforeunload', (event) => {
+        if (gameInitialized && window.gameState?.isDirty) {
+            window.gameState.save();
+            
+            // Show confirmation for unsaved changes
+            event.preventDefault();
+            event.returnValue = 'You have unsaved progress. Are you sure you want to leave?';
+        }
+    });
+    
+    // Global error handler
+    window.addEventListener('error', (event) => {
+        console.error('Global error:', event.error);
+        if (gameInitialized) {
+            UIManager?.showMessage?.('An unexpected error occurred. Game progress has been saved.', 'error');
+            window.gameState?.save();
+        }
+    });
+    
+    // Handle unhandled promise rejections
+    window.addEventListener('unhandledrejection', (event) => {
+        console.error('Unhandled promise rejection:', event.reason);
+        event.preventDefault();
     });
 }
 
-// Auto-initialize when DOM is ready
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initializeApplication);
-} else {
-    initializeApplication();
+/**
+ * Setup keyboard shortcuts
+ */
+function setupKeyboardShortcuts() {
+    document.addEventListener('keydown', (event) => {
+        if (!gameInitialized) return;
+        
+        // Don't interfere with input fields
+        if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') {
+            return;
+        }
+        
+        // Handle shortcuts
+        switch (event.key) {
+            case 'Escape':
+                // Close modals or show game menu
+                const modals = document.querySelectorAll('.modal-overlay');
+                if (modals.length > 0) {
+                    modals.forEach(modal => modal.remove());
+                } else {
+                    UIManager?.showGameMenu?.();
+                }
+                event.preventDefault();
+                break;
+                
+            case 't':
+            case 'T':
+                // Quick training shortcut
+                if (window.gameState?.adventurer && ActionManager) {
+                    ActionManager.trainGeneral();
+                    event.preventDefault();
+                }
+                break;
+                
+            case 'd':
+            case 'D':
+                // Quick dungeon exploration
+                if (window.gameState?.adventurer && ActionManager) {
+                    ActionManager.showDungeonSelection();
+                    event.preventDefault();
+                }
+                break;
+                
+            case 'r':
+            case 'R':
+                // Quick rest
+                if (window.gameState?.adventurer && ActionManager) {
+                    ActionManager.rest();
+                    event.preventDefault();
+                }
+                break;
+                
+            case 's':
+            case 'S':
+                // Quick save
+                if (event.ctrlKey || event.metaKey) {
+                    window.gameState?.save();
+                    UIManager?.showMessage?.('Game saved!', 'success');
+                    event.preventDefault();
+                }
+                break;
+                
+            case 'h':
+            case 'H':
+            case '?':
+                // Show help
+                showHelpModal();
+                event.preventDefault();
+                break;
+        }
+    });
 }
 
-// Export for debugging
+/**
+ * Initialize tooltips
+ */
+function initializeTooltips() {
+    // Simple tooltip system
+    document.addEventListener('mouseover', (event) => {
+        const element = event.target.closest('[title]');
+        if (element && element.title) {
+            showTooltip(element, element.title);
+        }
+    });
+    
+    document.addEventListener('mouseout', (event) => {
+        const element = event.target.closest('[title]');
+        if (element) {
+            hideTooltip();
+        }
+    });
+}
+
+/**
+ * Start the game
+ */
+async function startGame() {
+    console.log('🎮 Starting game...');
+    
+    // Initialize GameManager
+    if (!GameManager.isInitialized) {
+        await GameManager.initialize();
+    }
+    
+    // Start the actual game
+    GameManager.startGame();
+    
+    // Show welcome message for new players
+    if (!window.gameState?.adventurer) {
+        setTimeout(() => {
+            showWelcomeMessage();
+        }, 1000);
+    }
+    
+    console.log('✅ Game started successfully');
+}
+
+/**
+ * Show loading screen
+ */
+function showLoadingScreen() {
+    const loadingScreen = document.getElementById('loadingScreen');
+    if (loadingScreen) {
+        loadingScreen.style.display = 'flex';
+        
+        // Set timeout to prevent infinite loading
+        loadingTimeout = setTimeout(() => {
+            console.error('Loading took too long, showing error');
+            showErrorMessage('Game is taking longer than expected to load. Please refresh the page.');
+        }, 30000); // 30 seconds timeout
+    }
+}
+
+/**
+ * Hide loading screen
+ */
+function hideLoadingScreen() {
+    const loadingScreen = document.getElementById('loadingScreen');
+    if (loadingScreen) {
+        loadingScreen.style.display = 'none';
+    }
+    
+    if (loadingTimeout) {
+        clearTimeout(loadingTimeout);
+        loadingTimeout = null;
+    }
+}
+
+/**
+ * Update loading status
+ */
+function updateLoadingStatus(status) {
+    const loadingDetails = document.querySelector('.loading-details small');
+    if (loadingDetails) {
+        loadingDetails.textContent = status;
+    }
+    console.log(`📋 Loading: ${status}`);
+}
+
+/**
+ * Show error message
+ */
+function showErrorMessage(message) {
+    const errorDiv = document.createElement('div');
+    errorDiv.className = 'error-message';
+    errorDiv.innerHTML = `
+        <div class="error-content">
+            <h2>❌ Error</h2>
+            <p>${message}</p>
+            <button onclick="location.reload()" class="btn btn-primary">
+                🔄 Reload Page
+            </button>
+        </div>
+    `;
+    
+    errorDiv.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.9);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 10000;
+        color: white;
+        text-align: center;
+    `;
+    
+    document.body.appendChild(errorDiv);
+}
+
+/**
+ * Show welcome message for new players
+ */
+function showWelcomeMessage() {
+    const welcomeContent = `
+        <div class="welcome-message">
+            <h3>🎉 Welcome to Solo Adventure Mode!</h3>
+            <div class="welcome-content">
+                <p>You're about to embark on an epic solo journey. Here's what you need to know:</p>
+                
+                <div class="welcome-tips">
+                    <div class="tip">
+                        <h4>🎭 Choose Your Hero</h4>
+                        <p>Select one character to train and adventure with. Each character has unique strengths and abilities.</p>
+                    </div>
+                    
+                    <div class="tip">
+                        <h4>💪 Train Regularly</h4>
+                        <p>Use General Training for balanced growth, or Focused Training to boost specific stats.</p>
+                    </div>
+                    
+                    <div class="tip">
+                        <h4>🗡️ Solo Adventures</h4>
+                        <p>Explore dungeons alone for greater rewards but higher risk. Strategic thinking is key!</p>
+                    </div>
+                    
+                    <div class="tip">
+                        <h4>⚡ Keyboard Shortcuts</h4>
+                        <p>Press <kbd>T</kbd> for training, <kbd>D</kbd> for dungeons, <kbd>R</kbd> for rest, <kbd>H</kbd> for help.</p>
+                    </div>
+                </div>
+                
+                <p class="welcome-footer">Good luck, and may your solo adventures be legendary!</p>
+            </div>
+        </div>
+    `;
+    
+    if (UIManager?.createModal) {
+        const modal = UIManager.createModal('Welcome, Adventurer!', welcomeContent);
+        document.body.appendChild(modal);
+        setTimeout(() => modal.classList.add('show'), 10);
+    }
+}
+
+/**
+ * Show help modal
+ */
+function showHelpModal() {
+    const helpContent = `
+        <div class="help-content">
+            <div class="help-section">
+                <h4>🎮 Game Controls</h4>
+                <div class="shortcut-list">
+                    <div class="shortcut"><kbd>T</kbd> - Quick General Training</div>
+                    <div class="shortcut"><kbd>D</kbd> - Open Dungeon Selection</div>
+                    <div class="shortcut"><kbd>R</kbd> - Rest and Recover</div>
+                    <div class="shortcut"><kbd>Ctrl+S</kbd> - Save Game</div>
+                    <div class="shortcut"><kbd>Esc</kbd> - Close Modals / Game Menu</div>
+                    <div class="shortcut"><kbd>H</kbd> or <kbd>?</kbd> - Show This Help</div>
+                </div>
+            </div>
+            
+            <div class="help-section">
+                <h4>💡 Tips for Success</h4>
+                <ul>
+                    <li>Train regularly to improve your character's stats</li>
+                    <li>Focus on your character's aptitudes for better training results</li>
+                    <li>Rest when your health is low before entering dungeons</li>
+                    <li>Start with easier dungeons and work your way up</li>
+                    <li>Buy equipment to boost your character's capabilities</li>
+                    <li>Monitor your gold and materials carefully</li>
+                </ul>
+            </div>
+            
+            <div class="help-section">
+                <h4>🏰 Solo Adventure Mode</h4>
+                <ul>
+                    <li>You control one powerful hero instead of a party</li>
+                    <li>Solo adventures offer higher rewards but greater risk</li>
+                    <li>Character progression is faster and more focused</li>
+                    <li>Strategic decision-making is crucial for survival</li>
+                </ul>
+            </div>
+        </div>
+    `;
+    
+    if (UIManager?.createModal) {
+        const modal = UIManager.createModal('Game Help', helpContent);
+        document.body.appendChild(modal);
+        setTimeout(() => modal.classList.add('show'), 10);
+    }
+}
+
+/**
+ * Utility functions
+ */
+
+// Debounce function to limit event frequency
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
+// Simple tooltip system
+let currentTooltip = null;
+
+function showTooltip(element, text) {
+    hideTooltip();
+    
+    const tooltip = document.createElement('div');
+    tooltip.className = 'tooltip';
+    tooltip.textContent = text;
+    tooltip.style.cssText = `
+        position: absolute;
+        background: rgba(0,0,0,0.9);
+        color: white;
+        padding: 8px 12px;
+        border-radius: 4px;
+        font-size: 14px;
+        pointer-events: none;
+        z-index: 1000;
+        max-width: 250px;
+        word-wrap: break-word;
+    `;
+    
+    document.body.appendChild(tooltip);
+    
+    const rect = element.getBoundingClientRect();
+    const tooltipRect = tooltip.getBoundingClientRect();
+    
+    let left = rect.left + (rect.width / 2) - (tooltipRect.width / 2);
+    let top = rect.top - tooltipRect.height - 8;
+    
+    // Adjust if tooltip goes off screen
+    if (left < 0) left = 8;
+    if (left + tooltipRect.width > window.innerWidth) {
+        left = window.innerWidth - tooltipRect.width - 8;
+    }
+    if (top < 0) {
+        top = rect.bottom + 8;
+    }
+    
+    tooltip.style.left = left + 'px';
+    tooltip.style.top = top + 'px';
+    
+    currentTooltip = tooltip;
+}
+
+function hideTooltip() {
+    if (currentTooltip) {
+        currentTooltip.remove();
+        currentTooltip = null;
+    }
+}
+
+/**
+ * Development helpers (only in development mode)
+ */
 if (typeof window !== 'undefined') {
-    window.app = app;
-    window.APP_CONFIG = APP_CONFIG;
+    // Expose useful functions globally for debugging
+    window.dev = {
+        gameState: () => window.gameState,
+        resetGame: () => GameManager?.resetGame?.(),
+        addGold: (amount) => window.gameState?.addResource('gold', amount),
+        addMaterials: (amount) => window.gameState?.addResource('materials', amount),
+        levelUpCharacter: () => {
+            const char = window.gameState?.adventurer;
+            if (char && char.gainExperience) {
+                char.gainExperience(char.experienceToNext);
+            }
+        },
+        showAllSections: () => {
+            document.querySelectorAll('.game-section').forEach(section => {
+                section.classList.remove('hidden');
+            });
+        }
+    };
+    
+    console.log('🛠️ Development helpers available at window.dev');
 }
 
-// Export for Node.js
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { ApplicationManager, APP_CONFIG };
+/**
+ * Application entry point
+ */
+document.addEventListener('DOMContentLoaded', () => {
+    console.log('📱 DOM loaded, initializing application...');
+    initializeApp();
+});
+
+// Fallback initialization in case DOMContentLoaded already fired
+if (document.readyState === 'loading') {
+    // Do nothing, DOMContentLoaded will fire
+} else {
+    // DOM is already ready
+    console.log('📱 DOM already ready, initializing application...');
+    initializeApp();
 }
+
+console.log('✅ Main application script loaded');

@@ -1,8 +1,8 @@
 /**
  * ===========================================
- * GAME STATE MANAGEMENT
+ * GAME STATE MANAGEMENT - SINGLE CHARACTER
  * ===========================================
- * Centralized state management with save/load functionality
+ * Centralized state management with save/load functionality for single character
  */
 
 class GameState {
@@ -22,9 +22,9 @@ class GameState {
         this.totalGameTime = 0; // in milliseconds
         this.lastPlayTime = Date.now();
 
-        // Party and character management
-        this.selectedCharacters = [];
-        this.party = [];
+        // Single character management (changed from party)
+        this.selectedCharacter = null; // Single character ID
+        this.adventurer = null; // Single character instance
         this.unlockedCharacters = ['guardian', 'cleric', 'rogue', 'mage'];
         this.availableMentors = []; // For future mentor system
 
@@ -41,667 +41,377 @@ class GameState {
             totalMaterialsGathered: 0,
             charactersLost: 0,
             skillsLearned: 0,
-            victoriesAgainstDemonLord: 0
+            victoriesAgainstDemonLord: 0,
+            // New single character stats
+            totalTrainingSessions: 0,
+            statImprovements: {},
+            soloVictories: 0
         };
 
         // Combat history for unlocks and mentors
         this.combatHistory = [];
+        
+        // Character training history
+        this.trainingHistory = [];
         
         // Game settings
         this.settings = {
             autoSave: true,
             combatSpeed: 1.0,
             showDetailedLogs: true,
-            soundEnabled: true,
-            musicEnabled: true
+            singleCharacterMode: true // New flag
         };
 
-        // Meta progression (carries between runs)
-        this.metaProgression = {
-            totalRuns: 0,
-            bestTurnCount: null,
-            highestLevel: 0,
-            lifetimeGold: 0,
-            permanentUpgrades: []
-        };
-
-        // Internal state
-        this._saveVersion = '1.0.0';
-        this._lastSaveTime = Date.now();
-        this._isDirty = false; // Track if state needs saving
+        // Save system
+        this.saveKey = 'dungeonLordsManager_singleChar';
+        this.isDirty = false;
+        this.lastSaveTime = 0;
+        
+        console.log('🎮 Game State initialized for single character mode');
     }
 
     /**
-     * Save game state to localStorage (ready for real storage)
+     * Set selected character
      */
-    save() {
-        try {
-            const saveData = this.createSaveData();
-            
-            // In a real implementation, this would use localStorage
-            // localStorage.setItem('dungeonLordsManager_save', JSON.stringify(saveData));
-            
-            this._lastSaveTime = Date.now();
-            this._isDirty = false;
-            
-            console.log('💾 Game state saved successfully');
-            return true;
-            
-        } catch (error) {
-            console.error('❌ Failed to save game state:', error);
+    setSelectedCharacter(characterId) {
+        if (!this.unlockedCharacters.includes(characterId)) {
+            console.warn(`Character ${characterId} is not unlocked`);
             return false;
         }
-    }
-
-    /**
-     * Load game state from localStorage (ready for real storage)
-     */
-    load() {
-        try {
-            // In a real implementation, this would use localStorage
-            // const saveData = localStorage.getItem('dungeonLordsManager_save');
-            
-            console.log('📂 Game state loaded (placeholder - no persistent storage in artifacts)');
-            return true;
-            
-        } catch (error) {
-            console.error('❌ Failed to load game state:', error);
-            return false;
-        }
-    }
-
-    /**
-     * Create save data object
-     */
-    createSaveData() {
-        return {
-            version: this._saveVersion,
-            timestamp: Date.now(),
-            gameData: {
-                resources: { ...this.resources },
-                turnsLeft: this.turnsLeft,
-                maxTurns: this.maxTurns,
-                currentSeason: this.currentSeason,
-                totalGameTime: this.totalGameTime + (Date.now() - this.lastPlayTime),
-                selectedCharacters: [...this.selectedCharacters],
-                party: this.party.map(char => this.serializeCharacter(char)),
-                unlockedCharacters: [...this.unlockedCharacters],
-                completedDungeons: { ...this.completedDungeons },
-                unlockedDungeons: [...this.unlockedDungeons],
-                achievements: [...this.achievements],
-                statistics: { ...this.statistics },
-                combatHistory: [...this.combatHistory],
-                settings: { ...this.settings },
-                metaProgression: { ...this.metaProgression }
-            }
-        };
-    }
-
-    /**
-     * Load from save data object
-     */
-    loadFromSaveData(saveData) {
-        if (!saveData || !saveData.gameData) {
-            throw new Error('Invalid save data format');
-        }
-
-        const data = saveData.gameData;
         
-        // Load core data
-        this.resources = data.resources || this.resources;
-        this.turnsLeft = data.turnsLeft ?? this.turnsLeft;
-        this.maxTurns = data.maxTurns ?? this.maxTurns;
-        this.currentSeason = data.currentSeason ?? this.currentSeason;
-        this.totalGameTime = data.totalGameTime ?? this.totalGameTime;
-        
-        // Load party and character data
-        this.selectedCharacters = data.selectedCharacters || [];
-        this.unlockedCharacters = data.unlockedCharacters || this.unlockedCharacters;
-        this.party = (data.party || []).map(charData => this.deserializeCharacter(charData));
-        
-        // Load progress data
-        this.completedDungeons = data.completedDungeons || {};
-        this.unlockedDungeons = data.unlockedDungeons || this.unlockedDungeons;
-        this.achievements = data.achievements || [];
-        this.statistics = { ...this.statistics, ...data.statistics };
-        this.combatHistory = data.combatHistory || [];
-        
-        // Load settings
-        this.settings = { ...this.settings, ...data.settings };
-        this.metaProgression = { ...this.metaProgression, ...data.metaProgression };
-        
-        this.lastPlayTime = Date.now();
-        this._isDirty = false;
-        
-        console.log('📈 Save data loaded successfully');
-    }
-
-    /**
-     * Serialize character for saving
-     */
-    serializeCharacter(character) {
-        return {
-            id: character.id,
-            name: character.name,
-            archetype: character.archetype,
-            currentHP: character.currentHP,
-            currentMP: character.currentMP,
-            maxHP: character.maxHP,
-            maxMP: character.maxMP,
-            stats: { ...character.stats },
-            skills: [...character.skills],
-            combatStats: { ...character.combatStats },
-            statusEffects: [...character.statusEffects],
-            equipment: character.equipment ? { ...character.equipment } : null
-        };
-    }
-
-    /**
-     * Deserialize character from save data
-     */
-    deserializeCharacter(charData) {
-        // This would create a proper Character instance
-        // For now, return the data as-is since Character class is in another file
-        return {
-            ...charData,
-            statusEffects: charData.statusEffects || [],
-            equipment: charData.equipment || null
-        };
-    }
-
-    /**
-     * Reset game state for new run
-     */
-    reset() {
-        // Update meta progression before reset
-        this.metaProgression.totalRuns++;
-        if (this.turnsLeft > 0) {
-            const turnsTaken = this.maxTurns - this.turnsLeft;
-            if (!this.metaProgression.bestTurnCount || turnsTaken < this.metaProgression.bestTurnCount) {
-                this.metaProgression.bestTurnCount = turnsTaken;
-            }
-        }
-        
-        // Calculate highest level achieved
-        if (this.party.length > 0) {
-            const maxLevel = Math.max(...this.party.map(char => 
-                Math.max(...Object.values(char.stats || {}))
-            ));
-            if (maxLevel > this.metaProgression.highestLevel) {
-                this.metaProgression.highestLevel = maxLevel;
-            }
-        }
-        
-        this.metaProgression.lifetimeGold += this.statistics.totalGoldEarned;
-
-        // Reset current run data
-        this.resources = { gold: 1000, materials: 50, reputation: 10, experience: 0 };
-        this.turnsLeft = this.maxTurns;
-        this.currentSeason++;
-        this.selectedCharacters = [];
-        this.party = [];
-        this.combatHistory = [];
-        
-        // Reset statistics for new run
-        const newStats = {};
-        Object.keys(this.statistics).forEach(key => {
-            newStats[key] = 0;
-        });
-        this.statistics = newStats;
-        
-        // Keep unlocked content and achievements
-        // Keep settings and meta progression
-        
+        this.selectedCharacter = characterId;
         this.markDirty();
-        console.log(`🔄 New run started - Season ${this.currentSeason}`);
+        return true;
     }
 
     /**
-     * Add resource with validation
+     * Get current adventurer
+     */
+    getAdventurer() {
+        return this.adventurer;
+    }
+
+    /**
+     * Set current adventurer
+     */
+    setAdventurer(character) {
+        this.adventurer = character;
+        this.markDirty();
+    }
+
+    /**
+     * Check if character is selected and ready
+     */
+    isCharacterReady() {
+        return this.selectedCharacter && this.adventurer;
+    }
+
+    /**
+     * Add resources
      */
     addResource(type, amount) {
-        if (!this.resources.hasOwnProperty(type)) {
-            console.warn(`Unknown resource type: ${type}`);
-            return false;
-        }
-
-        const oldValue = this.resources[type];
-        this.resources[type] = Math.max(0, oldValue + amount);
-        
-        // Update statistics
-        if (amount > 0) {
+        if (this.resources.hasOwnProperty(type)) {
+            this.resources[type] += amount;
+            this.markDirty();
+            
+            // Update statistics
             if (type === 'gold') {
                 this.statistics.totalGoldEarned += amount;
             } else if (type === 'materials') {
                 this.statistics.totalMaterialsGathered += amount;
             }
-        }
-        
-        this.markDirty();
-        return true;
-    }
-
-    /**
-     * Check if player can afford something
-     */
-    canAfford(costs) {
-        if (!costs || typeof costs !== 'object') {
+            
             return true;
         }
+        return false;
+    }
 
-        // Only check actual resource costs (numeric values)
-        for (const [resource, amount] of Object.entries(costs)) {
-            // Skip non-resource properties
-            if (typeof amount !== 'number') {
-                continue;
-            }
+    /**
+     * Spend resources
+     */
+    spendResource(type, amount) {
+        if (this.resources.hasOwnProperty(type) && this.resources[type] >= amount) {
+            this.resources[type] -= amount;
+            this.markDirty();
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Check if can afford cost
+     */
+    canAfford(costs) {
+        return Object.entries(costs).every(([resource, amount]) => {
+            return this.resources[resource] >= amount;
+        });
+    }
+
+    /**
+     * Record training session
+     */
+    recordTraining(stat, improvement, method = 'manual') {
+        this.statistics.totalTrainingSessions++;
+        
+        if (!this.statistics.statImprovements[stat]) {
+            this.statistics.statImprovements[stat] = 0;
+        }
+        this.statistics.statImprovements[stat] += improvement;
+        
+        this.trainingHistory.push({
+            timestamp: Date.now(),
+            character: this.adventurer?.name || 'Unknown',
+            stat,
+            improvement,
+            method
+        });
+        
+        this.markDirty();
+    }
+
+    /**
+     * Complete dungeon
+     */
+    completeDungeon(dungeonId, success, stats = {}) {
+        if (!this.completedDungeons[dungeonId]) {
+            this.completedDungeons[dungeonId] = {
+                attempts: 0,
+                victories: 0,
+                firstClearTime: null
+            };
+        }
+        
+        this.completedDungeons[dungeonId].attempts++;
+        
+        if (success) {
+            this.completedDungeons[dungeonId].victories++;
+            this.statistics.dungeonsCompleted++;
+            this.statistics.soloVictories++;
             
-            // Check if this is a valid resource and we have enough
-            if (this.resources.hasOwnProperty(resource)) {
-                if ((this.resources[resource] || 0) < amount) {
-                    console.log(`Cannot afford: need ${amount} ${resource}, have ${this.resources[resource] || 0}`);
-                    return false;
-                }
+            if (!this.completedDungeons[dungeonId].firstClearTime) {
+                this.completedDungeons[dungeonId].firstClearTime = Date.now();
             }
         }
         
-        return true;
+        // Update statistics
+        if (stats.damageDealt) this.statistics.totalDamageDealt += stats.damageDealt;
+        if (stats.damageTaken) this.statistics.totalDamageTaken += stats.damageTaken;
+        if (stats.enemiesKilled) this.statistics.enemiesDefeated += stats.enemiesKilled;
+        
+        this.markDirty();
     }
 
     /**
-     * Spend resources with validation
-     */
-    spendResources(costs) {
-        if (!this.canAfford(costs)) {
-            return false;
-        }
-
-        // Only spend actual resource costs (numeric values)
-        Object.entries(costs).forEach(([resource, amount]) => {
-            if (typeof amount === 'number' && this.resources.hasOwnProperty(resource)) {
-                this.addResource(resource, -amount);
-            }
-        });
-
-        return true;
-    }
-
-    /**
-     * Add character to unlocked list
+     * Unlock new character
      */
     unlockCharacter(characterId) {
         if (!this.unlockedCharacters.includes(characterId)) {
             this.unlockedCharacters.push(characterId);
-            console.log(`🔓 Character unlocked: ${characterId}`);
             this.markDirty();
+            console.log(`🔓 Unlocked character: ${characterId}`);
             return true;
         }
         return false;
     }
 
     /**
-     * Check character unlock conditions
+     * Next turn
      */
-    checkCharacterUnlocks() {
-        if (typeof CHARACTER_UNLOCK_VALIDATORS === 'undefined') {
-            return [];
-        }
-
-        const newUnlocks = [];
-        
-        Object.entries(CHARACTER_UNLOCK_VALIDATORS).forEach(([condition, validator]) => {
-            // Find characters with this unlock condition
-            if (typeof CHARACTERS_DATA !== 'undefined') {
-                Object.entries(CHARACTERS_DATA).forEach(([charId, charData]) => {
-                    if (charData.unlockCondition === condition && 
-                        !this.unlockedCharacters.includes(charId) &&
-                        validator(this)) {
-                        
-                        if (this.unlockCharacter(charId)) {
-                            newUnlocks.push({
-                                id: charId,
-                                name: charData.name,
-                                condition: condition
-                            });
-                        }
-                    }
-                });
-            }
-        });
-
-        return newUnlocks;
-    }
-
-    /**
-     * Add dungeon to unlocked list
-     */
-    unlockDungeon(dungeonId) {
-        if (!this.unlockedDungeons.includes(dungeonId)) {
-            this.unlockedDungeons.push(dungeonId);
-            console.log(`🏰 Dungeon unlocked: ${dungeonId}`);
-            this.markDirty();
-            return true;
-        }
-        return false;
-    }
-
-    /**
-     * Mark dungeon as completed
-     */
-    completeDungeon(dungeonId, turnsTaken = 1, victory = true) {
-        if (!this.completedDungeons[dungeonId]) {
-            this.completedDungeons[dungeonId] = {
-                completions: 0,
-                bestTime: null,
-                victories: 0,
-                defeats: 0,
-                firstCompletionDate: Date.now()
-            };
-        }
-
-        const dungeonRecord = this.completedDungeons[dungeonId];
-        dungeonRecord.completions++;
-        
-        if (victory) {
-            dungeonRecord.victories++;
-            this.statistics.dungeonsCompleted++;
-            
-            if (!dungeonRecord.bestTime || turnsTaken < dungeonRecord.bestTime) {
-                dungeonRecord.bestTime = turnsTaken;
-            }
-        } else {
-            dungeonRecord.defeats++;
-        }
-
-        dungeonRecord.lastCompletionDate = Date.now();
-        this.markDirty();
-        
-        // Check for new dungeon unlocks
-        this.checkDungeonUnlocks();
-    }
-
-    /**
-     * Check dungeon unlock conditions
-     */
-    checkDungeonUnlocks() {
-        const unlockConditions = {
-            'crystal_caverns': () => this.completedDungeons['training_grounds']?.victories > 0,
-            'ancient_library': () => this.completedDungeons['crystal_caverns']?.victories > 0,
-            'shadow_fortress': () => this.completedDungeons['ancient_library']?.victories > 0,
-            'elemental_planes': () => this.completedDungeons['shadow_fortress']?.victories > 0
-        };
-
-        Object.entries(unlockConditions).forEach(([dungeonId, condition]) => {
-            if (!this.unlockedDungeons.includes(dungeonId) && condition()) {
-                this.unlockDungeon(dungeonId);
-            }
-        });
-    }
-
-    /**
-     * Add achievement
-     */
-    addAchievement(achievementId) {
-        if (!this.achievements.includes(achievementId)) {
-            this.achievements.push(achievementId);
-            console.log(`🏆 Achievement unlocked: ${achievementId}`);
-            this.markDirty();
-            
-            // Apply achievement rewards if defined
-            if (typeof ACHIEVEMENTS_DATA !== 'undefined' && ACHIEVEMENTS_DATA[achievementId]) {
-                const reward = ACHIEVEMENTS_DATA[achievementId].reward;
-                this.applyReward(reward);
-            }
-            
-            return true;
-        }
-        return false;
-    }
-
-    /**
-     * Apply reward object to game state
-     */
-    applyReward(reward) {
-        if (!reward) return;
-
-        Object.entries(reward).forEach(([rewardType, value]) => {
-            switch (rewardType) {
-                case 'gold':
-                case 'materials':
-                case 'experience':
-                case 'reputation':
-                    this.addResource(rewardType, value);
-                    break;
-                case 'skillBook':
-                    // Handle skill book rewards
-                    break;
-                case 'darkArtifact':
-                case 'elementalCore':
-                case 'legendaryArtifact':
-                    // Handle special item rewards
-                    break;
-                case 'specialUnlock':
-                    if (typeof value === 'string') {
-                        this.unlockCharacter(value);
-                    }
-                    break;
-                case 'legendaryTitle':
-                    // Handle title rewards
-                    break;
-            }
-        });
-    }
-
-    /**
-     * Record combat encounter for history and unlocks
-     */
-    recordCombat(combatData) {
-        const record = {
-            timestamp: Date.now(),
-            dungeon: combatData.dungeon || 'unknown',
-            enemy: combatData.enemy || 'unknown',
-            victory: combatData.victory || false,
-            turnsTaken: combatData.turnsTaken || 1,
-            damageDealt: combatData.damageDealt || 0,
-            damageReceived: combatData.damageReceived || 0,
-            skillsUsed: combatData.skillsUsed || [],
-            partyComposition: combatData.partyComposition || [],
-            minPartyHealth: combatData.minPartyHealth || 100,
-            magicDamagePercent: combatData.magicDamagePercent || 0,
-            isBoss: combatData.isBoss || false,
-            enemyType: combatData.enemyType || 'normal'
-        };
-
-        this.combatHistory.push(record);
-        
-        // Keep history manageable (last 100 combats)
-        if (this.combatHistory.length > 100) {
-            this.combatHistory = this.combatHistory.slice(-100);
-        }
-
-        // Update statistics
-        if (record.victory) {
-            this.statistics.enemiesDefeated++;
-        }
-        if (record.enemy === 'demon_lord_malphas' && record.victory) {
-            this.statistics.victoriesAgainstDemonLord++;
-        }
-        this.statistics.totalDamageDealt += record.damageDealt;
-        this.statistics.totalDamageTaken += record.damageReceived;
-        this.statistics.skillsLearned += record.skillsUsed.length;
-
-        this.markDirty();
-        
-        // Check for achievement unlocks
-        this.checkAchievementUnlocks();
-        this.checkCharacterUnlocks();
-    }
-
-    /**
-     * Check achievement unlock conditions
-     */
-    checkAchievementUnlocks() {
-        const conditions = {
-            'FIRST_STEPS': () => this.statistics.dungeonsCompleted >= 1,
-            'CRYSTAL_EXPLORER': () => this.completedDungeons['crystal_caverns']?.completions >= 3,
-            'SCHOLAR': () => this.statistics.skillsLearned >= 10,
-            'SHADOW_WALKER': () => this.combatHistory.some(c => 
-                c.dungeon === 'shadow_fortress' && c.victory && c.damageReceived === 0
-            ),
-            'ELEMENTAL_MASTER': () => {
-                const elementalVictories = this.combatHistory.filter(c => 
-                    c.victory && ['fire_elemental', 'frost_giant', 'storm_lord', 'earth_titan'].includes(c.enemy)
-                );
-                return new Set(elementalVictories.map(c => c.enemy)).size >= 4;
-            },
-            'DEMON_SLAYER': () => this.statistics.victoriesAgainstDemonLord >= 1
-        };
-
-        Object.entries(conditions).forEach(([achievementId, condition]) => {
-            if (!this.achievements.includes(achievementId) && condition()) {
-                this.addAchievement(achievementId);
-            }
-        });
-    }
-
-    /**
-     * Advance turn with validation
-     */
-    advanceTurn(turns = 1) {
-        this.turnsLeft = Math.max(0, this.turnsLeft - turns);
-        this.markDirty();
+    nextTurn() {
+        this.turnsLeft--;
         
         if (this.turnsLeft <= 0) {
-            console.log('⏰ Final turn reached!');
-            return { finalTurn: true };
+            this.currentSeason++;
+            this.turnsLeft = this.maxTurns;
+            console.log(`🍂 Season ${this.currentSeason} begins!`);
         }
         
-        return { turnsLeft: this.turnsLeft };
-    }
-
-    /**
-     * Get game progress summary
-     */
-    getProgressSummary() {
-        return {
-            season: this.currentSeason,
-            turnsLeft: this.turnsLeft,
-            resources: { ...this.resources },
-            partySize: this.party.length,
-            unlockedCharacters: this.unlockedCharacters.length,
-            unlockedDungeons: this.unlockedDungeons.length,
-            achievements: this.achievements.length,
-            dungeonsCompleted: this.statistics.dungeonsCompleted,
-            enemiesDefeated: this.statistics.enemiesDefeated,
-            demonLordVictories: this.statistics.victoriesAgainstDemonLord
-        };
+        // Auto-save every few turns
+        if ((this.maxTurns - this.turnsLeft) % 5 === 0) {
+            this.save();
+        }
+        
+        this.markDirty();
     }
 
     /**
      * Mark state as dirty (needs saving)
      */
     markDirty() {
-        this._isDirty = true;
-    }
-
-    /**
-     * Check if state needs saving
-     */
-    isDirty() {
-        return this._isDirty;
-    }
-
-    /**
-     * Update play time tracking
-     */
-    updatePlayTime() {
-        const now = Date.now();
-        const sessionTime = now - this.lastPlayTime;
-        this.totalGameTime += sessionTime;
-        this.lastPlayTime = now;
-    }
-
-    /**
-     * Get formatted play time
-     */
-    getFormattedPlayTime() {
-        this.updatePlayTime();
-        const totalMinutes = Math.floor(this.totalGameTime / (1000 * 60));
-        const hours = Math.floor(totalMinutes / 60);
-        const minutes = totalMinutes % 60;
+        this.isDirty = true;
         
-        if (hours > 0) {
-            return `${hours}h ${minutes}m`;
+        if (this.settings.autoSave) {
+            clearTimeout(this.autoSaveTimeout);
+            this.autoSaveTimeout = setTimeout(() => {
+                this.save();
+            }, 5000); // Auto-save after 5 seconds of inactivity
         }
-        return `${minutes}m`;
     }
 
     /**
-     * Export state for debugging
+     * Save game state
      */
-    exportState() {
-        return JSON.stringify(this.createSaveData(), null, 2);
-    }
-
-    /**
-     * Import state from string
-     */
-    importState(stateString) {
+    save() {
         try {
-            const saveData = JSON.parse(stateString);
-            this.loadFromSaveData(saveData);
+            const saveData = {
+                version: '1.0.0-single',
+                timestamp: Date.now(),
+                resources: this.resources,
+                turnsLeft: this.turnsLeft,
+                maxTurns: this.maxTurns,
+                currentSeason: this.currentSeason,
+                totalGameTime: this.totalGameTime,
+                selectedCharacter: this.selectedCharacter,
+                adventurer: this.adventurer ? {
+                    id: this.adventurer.id,
+                    name: this.adventurer.name,
+                    level: this.adventurer.level,
+                    experience: this.adventurer.experience,
+                    stats: this.adventurer.stats,
+                    currentHP: this.adventurer.currentHP,
+                    currentMP: this.adventurer.currentMP,
+                    maxHP: this.adventurer.maxHP,
+                    maxMP: this.adventurer.maxMP,
+                    learnedSkills: this.adventurer.learnedSkills,
+                    equipment: this.adventurer.equipment,
+                    combatStats: this.adventurer.combatStats,
+                    trainingHistory: this.adventurer.trainingHistory
+                } : null,
+                unlockedCharacters: this.unlockedCharacters,
+                completedDungeons: this.completedDungeons,
+                unlockedDungeons: this.unlockedDungeons,
+                achievements: this.achievements,
+                statistics: this.statistics,
+                trainingHistory: this.trainingHistory,
+                settings: this.settings
+            };
+            
+            localStorage.setItem(this.saveKey, JSON.stringify(saveData));
+            this.isDirty = false;
+            this.lastSaveTime = Date.now();
+            
+            console.log('💾 Game saved successfully');
             return true;
+            
         } catch (error) {
-            console.error('❌ Failed to import state:', error);
+            console.error('Failed to save game:', error);
             return false;
         }
     }
 
     /**
-     * Validate state integrity
+     * Load game state
      */
-    validateState() {
-        const issues = [];
-        
-        // Check resources are non-negative
-        Object.entries(this.resources).forEach(([resource, value]) => {
-            if (typeof value !== 'number' || value < 0) {
-                issues.push(`Invalid ${resource} value: ${value}`);
+    load() {
+        try {
+            const saveData = localStorage.getItem(this.saveKey);
+            if (!saveData) {
+                console.log('No save data found');
+                return false;
             }
-        });
-        
-        // Check turns are valid
-        if (this.turnsLeft < 0 || this.turnsLeft > this.maxTurns) {
-            issues.push(`Invalid turns left: ${this.turnsLeft}`);
-        }
-        
-        // Check party size
-        if (this.party.length > 4) {
-            issues.push(`Invalid party size: ${this.party.length}`);
-        }
-        
-        // Check unlocked characters exist
-        if (typeof CHARACTERS_DATA !== 'undefined') {
-            this.unlockedCharacters.forEach(charId => {
-                if (!CHARACTERS_DATA[charId]) {
-                    issues.push(`Unknown character: ${charId}`);
+            
+            const data = JSON.parse(saveData);
+            
+            // Load basic state
+            this.resources = data.resources || this.resources;
+            this.turnsLeft = data.turnsLeft || this.turnsLeft;
+            this.maxTurns = data.maxTurns || this.maxTurns;
+            this.currentSeason = data.currentSeason || this.currentSeason;
+            this.totalGameTime = data.totalGameTime || this.totalGameTime;
+            this.selectedCharacter = data.selectedCharacter || null;
+            this.unlockedCharacters = data.unlockedCharacters || this.unlockedCharacters;
+            this.completedDungeons = data.completedDungeons || this.completedDungeons;
+            this.unlockedDungeons = data.unlockedDungeons || this.unlockedDungeons;
+            this.achievements = data.achievements || this.achievements;
+            this.statistics = { ...this.statistics, ...data.statistics };
+            this.trainingHistory = data.trainingHistory || this.trainingHistory;
+            this.settings = { ...this.settings, ...data.settings };
+            
+            // Recreate adventurer if saved
+            if (data.adventurer && this.selectedCharacter) {
+                const charData = CHARACTERS_DATA[this.selectedCharacter];
+                if (charData) {
+                    this.adventurer = new Character(charData, this.selectedCharacter);
+                    
+                    // Restore saved character state
+                    Object.assign(this.adventurer, data.adventurer);
                 }
-            });
+            }
+            
+            this.lastSaveTime = data.timestamp || Date.now();
+            this.isDirty = false;
+            
+            console.log('📁 Game loaded successfully');
+            return true;
+            
+        } catch (error) {
+            console.error('Failed to load game:', error);
+            return false;
         }
+    }
+
+    /**
+     * Reset game state
+     */
+    reset() {
+        const confirmation = confirm('Are you sure you want to reset all progress? This cannot be undone.');
+        if (!confirmation) return false;
         
+        localStorage.removeItem(this.saveKey);
+        
+        // Reset to initial state
+        this.resources = { gold: 1000, materials: 50, reputation: 10, experience: 0 };
+        this.turnsLeft = 20;
+        this.maxTurns = 20;
+        this.currentSeason = 1;
+        this.totalGameTime = 0;
+        this.selectedCharacter = null;
+        this.adventurer = null;
+        this.unlockedCharacters = ['guardian', 'cleric', 'rogue', 'mage'];
+        this.completedDungeons = {};
+        this.unlockedDungeons = ['training_grounds'];
+        this.achievements = [];
+        this.statistics = {
+            dungeonsCompleted: 0,
+            enemiesDefeated: 0,
+            totalDamageDealt: 0,
+            totalDamageTaken: 0,
+            totalGoldEarned: 0,
+            totalMaterialsGathered: 0,
+            charactersLost: 0,
+            skillsLearned: 0,
+            victoriesAgainstDemonLord: 0,
+            totalTrainingSessions: 0,
+            statImprovements: {},
+            soloVictories: 0
+        };
+        this.trainingHistory = [];
+        
+        this.isDirty = false;
+        this.lastSaveTime = 0;
+        
+        console.log('🔄 Game state reset');
+        return true;
+    }
+
+    /**
+     * Get game statistics for display
+     */
+    getStatistics() {
         return {
-            isValid: issues.length === 0,
-            issues: issues
+            ...this.statistics,
+            currentSeason: this.currentSeason,
+            turnsLeft: this.turnsLeft,
+            totalPlaytime: this.totalGameTime,
+            characterName: this.adventurer?.name || 'None',
+            characterLevel: this.adventurer?.level || 0,
+            lastSaved: new Date(this.lastSaveTime).toLocaleDateString()
         };
     }
 }
 
-// Export for use in other modules
+// Global game state instance
 if (typeof window !== 'undefined') {
     window.GameState = GameState;
-    console.log('✅ GameState class loaded successfully');
-}
-
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = GameState;
+    console.log('✅ Single Character GameState loaded successfully');
 }
