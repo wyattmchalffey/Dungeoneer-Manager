@@ -1,0 +1,551 @@
+/* ===========================================
+   ENHANCED SOLO MODE STYLES - Single Character Focus
+   =========================================== */
+
+/* Solo Mode Layout Enhancements */
+.character-selection-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    position: relative;
+}
+
+.character-selection-container::before {
+    content: '';
+    position: absolute;
+    top: -20px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80px;
+    height: 3px;
+    background: var(--gradient-gold);
+    border-radius: var(--radius-md);
+}
+
+.selection-description {
+    text-align: center;
+    color: var(--text-secondary);
+    margin-bottom: var(--space-xl);
+    font-style: italic;
+    font-size: 1.1rem;
+    position: relative;
+    padding: var(--space-lg);
+    background: rgba(128, 90, 213, 0.1);
+    border-radius: var(--radius-lg);
+    border: 1px solid rgba(128, 90, 213, 0.2);
+}
+
+.selection-description::before {
+    content: '👤';
+    font-size: 1.5rem;
+    display: block;
+    margin-bottom: var(--space-sm);
+}
+
+.selection-actions {
+    text-align: center;
+    margin-top: var(--space-xl);
+    padding: var(--space-xl);
+    border-top: 1px solid rgba(49, 130, 206, 0.2);
+    background: rgba(15, 20, 25, 0.3);
+    border-radius: var(--radius-lg);
+    position: relative;
+}
+
+.selection-actions::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100px;
+    height: 1px;
+    background: var(--gradient-accent);
+}
+
+/* Enhanced Character Display for Solo Mode */
+.character-display-container {
+    max-width: 800px;
+    margin: 0 auto;
+    position: relative;
+}
+
+.character-showcase {
+    background: linear-gradient(135deg, rgba(45, 55, 72, 0.95), rgba(26, 29, 41, 0.95));
+    backdrop-filter: blur(20px);
+    border: 2px solid rgba(237, 201, 75, 0.4);
+    border-radius: var(--radius-xl);
+    padding: var(--space-2xl);
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 20px 40px rgba(237, 201, 75, 0.1);
+}
+
+.character-showcase::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--gradient-gold);
+}
+
+.character-showcase::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(237, 201, 75, 0.1), transparent);
+    animation: heroShine 3s infinite;
+}
+
+@keyframes heroShine {
+    0%, 90%, 100% { left: -100%; }
+    45% { left: 100%; }
+}
+
+.character-header {
+    text-align: center;
+    margin-bottom: var(--space-xl);
+    position: relative;
+}
+
+.character-name {
+    font-size: 2rem;
+    font-weight: 800;
+    background: var(--gradient-gold);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: var(--space-sm);
+    letter-spacing: -0.02em;
+}
+
+.character-title {
+    font-size: 1.2rem;
+    color: var(--accent-cyan);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: var(--space-md);
+}
+
+.character-level {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-sm);
+    background: var(--gradient-accent);
+    color: white;
+    padding: var(--space-sm) var(--space-lg);
+    border-radius: 9999px;
+    font-weight: 700;
+    font-size: 1rem;
+    box-shadow: var(--shadow-lg);
+}
+
+/* Enhanced Training & Adventure Sections */
+.training-section,
+.adventure-section,
+.character-management,
+.challenge-section {
+    margin: var(--space-2xl) 0;
+    padding: var(--space-xl);
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: var(--radius-xl);
+    border-left: 4px solid var(--accent-blue);
+    position: relative;
+    overflow: hidden;
+}
+
+.training-section::before,
+.adventure-section::before,
+.character-management::before,
+.challenge-section::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 4px;
+    height: 100%;
+    background: var(--gradient-accent);
+}
+
+.training-section {
+    border-left-color: var(--success);
+}
+
+.training-section::before {
+    background: linear-gradient(135deg, var(--success), #38a169);
+}
+
+.adventure-section {
+    border-left-color: var(--accent-cyan);
+}
+
+.adventure-section::before {
+    background: linear-gradient(135deg, var(--accent-blue), var(--accent-cyan));
+}
+
+.character-management {
+    border-left-color: var(--accent-purple);
+}
+
+.character-management::before {
+    background: linear-gradient(135deg, var(--accent-purple), #6b46c1);
+}
+
+.challenge-section {
+    border-left-color: var(--danger);
+    background: rgba(245, 101, 101, 0.05);
+    border: 1px solid rgba(245, 101, 101, 0.2);
+}
+
+.challenge-section::before {
+    background: linear-gradient(135deg, var(--danger), #e53e3e);
+}
+
+/* Enhanced Training Options */
+.training-options {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: var(--space-xl);
+    margin-top: var(--space-lg);
+}
+
+.training-type {
+    padding: var(--space-xl);
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: var(--radius-lg);
+    text-align: center;
+    border: 1px solid rgba(49, 130, 206, 0.2);
+    transition: all var(--transition-normal);
+    position: relative;
+    overflow: hidden;
+}
+
+.training-type:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-lg);
+    border-color: rgba(49, 130, 206, 0.4);
+}
+
+.training-type::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+    transition: left 0.6s ease;
+}
+
+.training-type:hover::before {
+    left: 100%;
+}
+
+.training-type h4 {
+    font-size: 1.2rem;
+    font-weight: 700;
+    margin: 0 0 var(--space-md) 0;
+    color: var(--text-primary);
+}
+
+.training-type p {
+    margin: 0 0 var(--space-lg) 0;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    line-height: 1.5;
+}
+
+.training-icon {
+    font-size: 2.5rem;
+    margin-bottom: var(--space-md);
+    display: block;
+}
+
+/* Enhanced Training Buttons */
+.btn-training {
+    background: linear-gradient(135deg, var(--success), #38a169);
+    border: none;
+    color: white;
+    padding: var(--space-md) var(--space-xl);
+    border-radius: var(--radius-lg);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    transition: all var(--transition-normal);
+    position: relative;
+    overflow: hidden;
+    min-width: 160px;
+}
+
+.btn-training::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: left 0.6s ease;
+}
+
+.btn-training:hover::before {
+    left: 100%;
+}
+
+.btn-training:hover {
+    background: linear-gradient(135deg, #38a169, #2f855a);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(72, 187, 120, 0.4);
+}
+
+.btn-focused {
+    background: linear-gradient(135deg, var(--warning), #dd6b20);
+}
+
+.btn-focused:hover {
+    background: linear-gradient(135deg, #dd6b20, #c05621);
+    box-shadow: 0 8px 25px rgba(237, 137, 54, 0.4);
+}
+
+/* Enhanced Adventure Grid */
+.adventure-grid,
+.management-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: var(--space-lg);
+    margin-top: var(--space-lg);
+}
+
+.adventure-item,
+.management-item {
+    background: rgba(45, 55, 72, 0.6);
+    border-radius: var(--radius-lg);
+    padding: var(--space-lg);
+    border: 1px solid rgba(49, 130, 206, 0.2);
+    transition: all var(--transition-normal);
+    position: relative;
+    overflow: hidden;
+}
+
+.adventure-item:hover,
+.management-item:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+    border-color: rgba(49, 130, 206, 0.4);
+}
+
+.adventure-item h4,
+.management-item h4 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: var(--space-md);
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
+.adventure-item p,
+.management-item p {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    margin-bottom: var(--space-md);
+    line-height: 1.4;
+}
+
+/* Enhanced Challenge Section */
+.challenge-warning {
+    color: #ffab91;
+    font-size: 0.875rem;
+    margin-top: var(--space-md);
+    text-align: center;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    animation: warningPulse 2s infinite;
+}
+
+@keyframes warningPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+.btn-challenge {
+    background: linear-gradient(135deg, var(--danger), #e53e3e);
+    color: white;
+    font-size: 1.1rem;
+    padding: var(--space-lg) var(--space-2xl);
+    border-radius: var(--radius-lg);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    min-width: 280px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 8px 25px rgba(245, 101, 101, 0.3);
+}
+
+.btn-challenge::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: left 0.6s ease;
+}
+
+.btn-challenge:hover::before {
+    left: 100%;
+}
+
+.btn-challenge:hover {
+    background: linear-gradient(135deg, #e53e3e, #c53030);
+    transform: translateY(-2px);
+    box-shadow: 0 12px 30px rgba(245, 101, 101, 0.5);
+}
+
+/* Solo Mode Specific Progress Indicators */
+.solo-progress {
+    margin: var(--space-xl) 0;
+    padding: var(--space-lg);
+    background: rgba(128, 90, 213, 0.1);
+    border-radius: var(--radius-lg);
+    border: 1px solid rgba(128, 90, 213, 0.2);
+}
+
+.solo-progress h3 {
+    color: var(--accent-purple);
+    margin-bottom: var(--space-md);
+    font-weight: 600;
+    text-align: center;
+}
+
+.progress-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: var(--space-sm) 0;
+    padding: var(--space-sm);
+    background: rgba(45, 55, 72, 0.4);
+    border-radius: var(--radius-md);
+}
+
+.progress-item-label {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+}
+
+.progress-item-value {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+/* Enhanced Quick Actions */
+.quick-actions {
+    display: flex;
+    justify-content: center;
+    gap: var(--space-md);
+    margin: var(--space-xl) 0;
+    flex-wrap: wrap;
+}
+
+.quick-action {
+    background: rgba(45, 55, 72, 0.8);
+    border: 1px solid rgba(49, 130, 206, 0.3);
+    border-radius: var(--radius-lg);
+    padding: var(--space-lg);
+    text-align: center;
+    transition: all var(--transition-normal);
+    cursor: pointer;
+    min-width: 140px;
+    position: relative;
+    overflow: hidden;
+}
+
+.quick-action:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+    border-color: var(--accent-cyan);
+}
+
+.quick-action::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(0, 217, 255, 0.1), transparent);
+    transition: left 0.6s ease;
+}
+
+.quick-action:hover::before {
+    left: 100%;
+}
+
+.quick-action-icon {
+    font-size: 1.8rem;
+    margin-bottom: var(--space-sm);
+    display: block;
+}
+
+.quick-action-label {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+/* Responsive Design for Solo Mode */
+@media (max-width: 768px) {
+    .training-options {
+        grid-template-columns: 1fr;
+        gap: var(--space-lg);
+    }
+    
+    .adventure-grid,
+    .management-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .quick-actions {
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .quick-action {
+        width: 100%;
+        max-width: 300px;
+    }
+    
+    .character-showcase {
+        padding: var(--space-lg);
+    }
+    
+    .character-name {
+        font-size: 1.5rem;
+    }
+    
+    .character-title {
+        font-size: 1rem;
+    }
+    
+    .btn-challenge {
+        width: 100%;
+        max-width: 280px;
+    }
+    
+    .training-section,
+    .adventure-section,
+    .character-management,
+    .challenge-section {
+        padding: var(--space-lg);
+        margin: var(--space-lg) 0;
+    }
+}
