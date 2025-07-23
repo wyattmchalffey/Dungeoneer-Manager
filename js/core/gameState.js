@@ -285,11 +285,26 @@ class GameState {
      * Check if player can afford something
      */
     canAfford(costs) {
+        if (!costs || typeof costs !== 'object') {
+            return true;
+        }
+
+        // Only check actual resource costs (numeric values)
         for (const [resource, amount] of Object.entries(costs)) {
-            if (!this.resources[resource] || this.resources[resource] < amount) {
-                return false;
+            // Skip non-resource properties
+            if (typeof amount !== 'number') {
+                continue;
+            }
+            
+            // Check if this is a valid resource and we have enough
+            if (this.resources.hasOwnProperty(resource)) {
+                if ((this.resources[resource] || 0) < amount) {
+                    console.log(`Cannot afford: need ${amount} ${resource}, have ${this.resources[resource] || 0}`);
+                    return false;
+                }
             }
         }
+        
         return true;
     }
 
@@ -301,8 +316,11 @@ class GameState {
             return false;
         }
 
+        // Only spend actual resource costs (numeric values)
         Object.entries(costs).forEach(([resource, amount]) => {
-            this.addResource(resource, -amount);
+            if (typeof amount === 'number' && this.resources.hasOwnProperty(resource)) {
+                this.addResource(resource, -amount);
+            }
         });
 
         return true;

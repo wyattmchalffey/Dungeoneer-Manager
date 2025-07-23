@@ -1187,25 +1187,45 @@ class UIManager {
      * Update action button states based on current game state
      */
     static updateActionButtonStates() {
-        if (typeof ActionManager === 'undefined') return;
-        
-        const availableActions = ActionManager.getAvailableActions();
-        
-        availableActions.forEach(action => {
-            const button = document.querySelector(`button[onclick*="${action.type}"]`);
-            if (button) {
-                button.disabled = !action.available;
-                button.title = action.available ? 
-                    `Cost: ${this.formatActionCosts(action.costs)}` : 
-                    action.reason;
-                    
-                if (!action.available) {
-                    button.classList.add('unavailable');
-                } else {
-                    button.classList.remove('unavailable');
+        if (typeof ActionManager === 'undefined' || !ActionManager.getAvailableActions) {
+            console.warn('ActionManager not available for button state updates');
+            return;
+        }
+
+        try {
+            const availableActions = ActionManager.getAvailableActions();
+
+            // Map of button onclick patterns to action types
+            const buttonMappings = {
+                'trainParty': 'trainParty',
+                'exploreDungeon': 'exploreDungeon',
+                'rest': 'rest',
+                'buyEquipment': 'buyEquipment',
+                'attemptDemonLord': 'attemptDemonLord'
+            };
+
+            availableActions.forEach(action => {
+                // Find button by onclick attribute containing the action name
+                const buttons = document.querySelectorAll('button[onclick]');
+                const button = Array.from(buttons).find(btn =>
+                    btn.onclick && btn.onclick.toString().includes(action.type)
+                );
+
+                if (button) {
+                    button.disabled = !action.available;
+
+                    if (!action.available) {
+                        button.classList.add('unavailable');
+                        button.title = action.reason || 'Action not available';
+                    } else {
+                        button.classList.remove('unavailable');
+                        button.title = action.costs ? this.formatActionCosts(action.costs) : '';
+                    }
                 }
-            }
-        });
+            });
+        } catch (error) {
+            console.warn('Error updating action button states:', error);
+        }
     }
 
     /**

@@ -9,6 +9,7 @@ class ActionManager {
     static instance = null;
     static isProcessingAction = false;
     static actionHistory = [];
+    static actionCallbacks = {};
 
     constructor() {
         if (ActionManager.instance) {
@@ -17,7 +18,18 @@ class ActionManager {
         ActionManager.instance = this;
         
         this.actionCosts = this.initializeActionCosts();
-        this.actionCallbacks = {};
+    }
+
+    /**
+     * Initialize ActionManager
+     */
+    static initialize() {
+        console.log('⚙️ Initializing Action Manager...');
+        if (!this.instance) {
+            this.instance = new ActionManager();
+        }
+        console.log('✅ Action Manager initialized');
+        return true;
     }
 
     /**
@@ -70,7 +82,12 @@ class ActionManager {
      * Validate action prerequisites
      */
     static validateAction(actionType, options = {}) {
-        const costs = this.instance?.actionCosts[actionType];
+        // Ensure we have an instance
+        if (!this.instance) {
+            this.instance = new ActionManager();
+        }
+
+        const costs = this.instance.actionCosts[actionType];
         if (!costs) {
             return { valid: false, reason: `Unknown action: ${actionType}` };
         }
@@ -80,8 +97,18 @@ class ActionManager {
             return { valid: false, reason: 'Another action is already in progress' };
         }
 
+        // Check if gameState exists
+        if (typeof gameState === 'undefined' || !gameState) {
+            return { valid: false, reason: 'Game state not available' };
+        }
+
+        // Debug logging
+        console.log(`Validating action: ${actionType}`);
+        console.log('Action costs:', costs);
+        console.log('Current resources:', gameState.resources);
+
         // Check party requirements
-        if (costs.requiredPartySize && gameState.party.length < costs.requiredPartySize) {
+        if (costs.requiredPartySize && (!gameState.party || gameState.party.length < costs.requiredPartySize)) {
             return { 
                 valid: false, 
                 reason: `Need at least ${costs.requiredPartySize} party members` 
@@ -89,7 +116,7 @@ class ActionManager {
         }
 
         // Check for conscious party members
-        const consciousMembers = gameState.party.filter(char => char.isAlive());
+        const consciousMembers = gameState.party ? gameState.party.filter(char => char.isAlive && char.isAlive()) : [];
         if (costs.requiredPartySize && consciousMembers.length < costs.requiredPartySize) {
             return { 
                 valid: false, 
@@ -98,9 +125,9 @@ class ActionManager {
         }
 
         // Check minimum health requirement
-        if (costs.minimumHealth) {
+        if (costs.minimumHealth && consciousMembers.length > 0) {
             const hasHealthyMembers = consciousMembers.some(char => 
-                char.getHealthPercentage() >= costs.minimumHealth
+                char.getHealthPercentage && char.getHealthPercentage() >= costs.minimumHealth
             );
             if (!hasHealthyMembers) {
                 return { 
@@ -110,20 +137,31 @@ class ActionManager {
             }
         }
 
-        // Check resource costs
-        if (!gameState.canAfford(costs)) {
-            const missing = Object.entries(costs)
+        // Check resource costs - this is the likely problem area
+        const resourceCosts = {};
+        Object.entries(costs).forEach(([key, value]) => {
+            if (typeof value === 'number' && gameState.resources.hasOwnProperty(key)) {
+                resourceCosts[key] = value;
+            }
+        });
+
+        console.log('Filtered resource costs:', resourceCosts);
+
+        // Check if we can afford the resource costs
+        if (!gameState.canAfford(resourceCosts)) {
+            const missing = Object.entries(resourceCosts)
                 .filter(([resource, amount]) => {
-                    return gameState.resources[resource] && 
-                           gameState.resources[resource] < amount;
+                    return (gameState.resources[resource] || 0) < amount;
                 })
                 .map(([resource, amount]) => 
                     `${amount} ${resource} (have ${gameState.resources[resource] || 0})`
                 );
             
+            console.log('Missing resources:', missing);
+            
             return { 
                 valid: false, 
-                reason: `Insufficient resources: need ${missing.join(', ')}` 
+                reason: missing.length > 0 ? `Insufficient resources: need ${missing.join(', ')}` : 'Cannot afford action'
             };
         }
 
@@ -136,7 +174,7 @@ class ActionManager {
         }
 
         // Check level requirements
-        if (costs.minimumLevel) {
+        if (costs.minimumLevel && consciousMembers.length > 0) {
             const hasLeveledMember = consciousMembers.some(char => 
                 char.level >= costs.minimumLevel
             );
@@ -148,6 +186,27 @@ class ActionManager {
             }
         }
 
+        console.log(`Action ${actionType} validation passed`);
+        return { valid: true };
+    }
+                reason: `Not enough turns remaining (need ${costs.turns})` 
+            };
+        }
+
+        // Check level requirements
+        if (costs.minimumLevel && consciousMembers.length > 0) {
+            const hasLeveledMember = consciousMembers.some(char => 
+                char.level >= costs.minimumLevel
+            );
+            if (!hasLeveledMember) {
+                return { 
+                    valid: false, 
+                    reason: `Need at least one party member at level ${costs.minimumLevel}` 
+                };
+            }
+        }
+
+        console.log(`Action ${actionType} validation passed`);
         return { valid: true };
     }
 
@@ -232,7 +291,7 @@ class ActionManager {
             // Refund resources on failure
             const costs = this.instance.actionCosts[actionType];
             Object.entries(costs).forEach(([resource, amount]) => {
-                if (gameState.resources.hasOwnProperty(resource)) {
+                if (typeof amount === 'number' && gameState.resources.hasOwnProperty(resource)) {
                     gameState.addResource(resource, amount);
                 }
             });
@@ -1022,9 +1081,14 @@ class ActionManager {
      * Get available actions for current game state
      */
     static getAvailableActions() {
+        // Ensure we have an instance
+        if (!this.instance) {
+            this.instance = new ActionManager();
+        }
+
         const actions = [];
         
-        Object.keys(this.instance?.actionCosts || {}).forEach(actionType => {
+        Object.keys(this.instance.actionCosts || {}).forEach(actionType => {
             const validation = this.validateAction(actionType);
             actions.push({
                 type: actionType,

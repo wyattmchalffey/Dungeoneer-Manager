@@ -98,9 +98,13 @@ class GameManager {
             throw new Error('GameState class not available');
         }
 
-        // Create global game state instance
-        window.gameState = new GameState();
-        this.gameState = window.gameState;
+        // Use existing global game state if available, otherwise create new one
+        if (window.gameState) {
+            this.gameState = window.gameState;
+        } else {
+            window.gameState = new GameState();
+            this.gameState = window.gameState;
+        }
 
         // Try to load existing save
         try {
@@ -261,6 +265,14 @@ class GameManager {
      */
     static startGame() {
         console.log('🚀 Starting game...');
+
+        // Ensure we have access to the global game state
+        this.gameState = window.gameState;
+        
+        if (!this.gameState) {
+            console.error('Game state not available');
+            return;
+        }
 
         // Show appropriate initial screen
         if (this.gameState.party.length === 0) {

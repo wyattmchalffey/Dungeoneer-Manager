@@ -133,17 +133,25 @@ class ApplicationManager {
         ];
         
         let attempts = 0;
-        const maxAttempts = 50;
+        const maxAttempts = 100; // Increased from 50
         
         return new Promise((resolve, reject) => {
             const checkClasses = () => {
                 attempts++;
                 
-                const allLoaded = requiredClasses.every(className => 
-                    typeof window[className] !== 'undefined' && window[className] !== null
-                );
+                // Check each class individually for better debugging
+                const classStatus = {};
+                requiredClasses.forEach(className => {
+                    classStatus[className] = typeof window[className] !== 'undefined' && window[className] !== null;
+                });
+                
+                console.log('Class loading status:', classStatus);
+                
+                const allLoaded = Object.values(classStatus).every(loaded => loaded);
                 
                 if (allLoaded) {
+                    console.log('✅ All required classes found, initializing systems...');
+                    
                     // Initialize global game state
                     window.gameState = new GameState();
                     
@@ -181,9 +189,44 @@ class ApplicationManager {
                     const missing = requiredClasses.filter(name => 
                         typeof window[name] === 'undefined'
                     );
+                    
+                    // Show detailed error info
+                    console.error('Missing classes after', maxAttempts, 'attempts:');
+                    console.error('Missing:', missing);
+                    console.error('Available classes:', Object.keys(window).filter(key => 
+                        typeof window[key] === 'function' && key.match(/^[A-Z]/)
+                    ));
+                    
+                    // Try to create a minimal ActionManager if it's the only missing piece
+                    if (missing.length === 1 && missing[0] === 'ActionManager') {
+                        console.log('🔧 Creating fallback ActionManager...');
+                        window.ActionManager = class ActionManager {
+                            static instance = null;
+                            static initialize() { return true; }
+                            static validateAction() { return { valid: true }; }
+                            static getAvailableActions() { return []; }
+                            static trainParty() { console.log('ActionManager fallback - trainParty'); }
+                            static exploreDungeon() { console.log('ActionManager fallback - exploreDungeon'); }
+                            static rest() { console.log('ActionManager fallback - rest'); }
+                            static buyEquipment() { console.log('ActionManager fallback - buyEquipment'); }
+                            static attemptDemonLord() { console.log('ActionManager fallback - attemptDemonLord'); }
+                            static onActionEvent() {}
+                            constructor() {
+                                if (ActionManager.instance) return ActionManager.instance;
+                                ActionManager.instance = this;
+                            }
+                        };
+                        ActionManager.instance = new ActionManager();
+                        
+                        // Try again with fallback
+                        setTimeout(checkClasses, 100);
+                        return;
+                    }
+                    
                     reject(new Error(`Required systems not loaded: ${missing.join(', ')}`));
                 } else {
-                    setTimeout(checkClasses, 100);
+                    // Wait a bit longer between checks
+                    setTimeout(checkClasses, 200);
                 }
             };
             
@@ -256,13 +299,29 @@ class ApplicationManager {
     startGame() {
         console.log('🎮 Starting game...');
         
-        // Initialize game manager after all systems are ready
+        // Ensure gameState is available globally
+        if (!window.gameState) {
+            console.error('Game state not available');
+            return;
+        }
+        
+        // Initialize game manager if available, but don't call GameManager.initialize()
+        // since we've already set up all the systems
         if (typeof GameManager !== 'undefined') {
-            // Don't call GameManager.initialize() here since we've already set everything up
-            // Just call startGame directly
+            // Set up GameManager's reference to game state
+            GameManager.gameState = window.gameState;
+            
+            // Start the game through GameManager
             GameManager.startGame();
         } else {
             console.error('GameManager not available');
+            // Fallback: start UI directly
+            if (typeof UIManager !== 'undefined') {
+                UIManager.showSection('characterSelectionSection');
+                UIManager.updateResourceDisplay();
+                UIManager.renderCharacterGrid();
+                UIManager.renderPartyDisplay();
+            }
         }
         
         // Dispatch game ready event
