@@ -32,6 +32,7 @@ class CombatManager {
             this.instance = new CombatManager();
         }
         console.log('✅ Combat Manager initialized');
+        return true;
     }
 
     /**

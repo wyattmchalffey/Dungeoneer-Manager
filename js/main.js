@@ -39,7 +39,7 @@ class ApplicationManager {
         
         try {
             // Show loading screen
-            this.showLoadingScreen();
+            UIManager.showLoadingScreen();
             
             // Define loading steps
             this.loadingSteps = [
@@ -63,7 +63,7 @@ class ApplicationManager {
             }
             
             // Hide loading screen and start game
-            this.hideLoadingScreen();
+            UIManager.hideLoadingScreen();
             this.startGame();
             
             console.log('✅ Application initialized successfully!');
@@ -146,6 +146,29 @@ class ApplicationManager {
                 if (allLoaded) {
                     // Initialize global game state
                     window.gameState = new GameState();
+                    
+                    // Initialize core managers that have initialize methods
+                    if (CombatManager.initialize) {
+                        CombatManager.initialize();
+                    }
+                    
+                    if (ActionManager.initialize) {
+                        ActionManager.initialize();
+                    } else {
+                        // ActionManager doesn't need initialization, just create instance
+                        if (!ActionManager.instance) {
+                            ActionManager.instance = new ActionManager();
+                        }
+                    }
+                    
+                    if (ValidationManager.initialize) {
+                        ValidationManager.initialize();
+                    } else {
+                        // ValidationManager doesn't need initialization, just create instance
+                        if (!ValidationManager.instance) {
+                            ValidationManager.instance = new ValidationManager();
+                        }
+                    }
                     
                     // Set up auto-save if enabled
                     if (APP_CONFIG.autoSave) {
@@ -252,32 +275,11 @@ class ApplicationManager {
     }
 
     /**
-     * Show loading screen
-     */
-    showLoadingScreen() {
-        const loadingScreen = document.getElementById('loadingScreen');
-        if (loadingScreen) {
-            loadingScreen.classList.remove('hidden');
-        }
-    }
-
-    /**
      * Update loading progress
      */
     updateLoadingProgress() {
-        const loadingScreen = document.getElementById('loadingScreen');
-        if (loadingScreen && this.loadingSteps[this.currentStep]) {
-            const progressText = loadingScreen.querySelector('p');
-            if (progressText) {
-                progressText.textContent = this.loadingSteps[this.currentStep].name;
-            }
-            
-            // Update progress bar if exists
-            const progressBar = loadingScreen.querySelector('.progress-bar');
-            if (progressBar) {
-                const progress = ((this.currentStep + 1) / this.loadingSteps.length) * 100;
-                progressBar.style.width = `${progress}%`;
-            }
+        if (this.loadingSteps[this.currentStep]) {
+            UIManager.updateLoadingProgress(this.loadingSteps[this.currentStep].name);
         }
     }
 
@@ -333,41 +335,8 @@ class ApplicationManager {
             this.onWindowResize();
         });
 
-        // Handle touch events for mobile feedback
-        this.setupTouchFeedback();
-
         // Setup keyboard shortcuts
         this.setupKeyboardShortcuts();
-    }
-
-    /**
-     * Setup touch feedback for mobile devices
-     */
-    setupTouchFeedback() {
-        // Add touch feedback
-        document.addEventListener('touchstart', (e) => {
-            if (e.target.classList.contains('btn') || e.target.classList.contains('character-card')) {
-                e.target.style.transform = 'scale(0.95)';
-            }
-        }, { passive: true });
-        
-        document.addEventListener('touchend', (e) => {
-            if (e.target.classList.contains('btn') || e.target.classList.contains('character-card')) {
-                setTimeout(() => {
-                    e.target.style.transform = '';
-                }, 150);
-            }
-        }, { passive: true });
-        
-        // Prevent zoom on double tap for iOS
-        let lastTouchEnd = 0;
-        document.addEventListener('touchend', (e) => {
-            const now = Date.now();
-            if (now - lastTouchEnd <= 300) {
-                e.preventDefault();
-            }
-            lastTouchEnd = now;
-        }, false);
     }
 
     /**
@@ -408,10 +377,10 @@ class ApplicationManager {
                     break;
                 case 'F1':
                     e.preventDefault();
-                    this.showHelp();
+                    UIManager.showHelp();
                     break;
                 case 'Escape':
-                    this.showGameMenu();
+                    UIManager.showGameMenu();
                     break;
             }
         });
@@ -460,7 +429,7 @@ class ApplicationManager {
         
         // Pause any running animations or timers
         if (typeof CombatManager !== 'undefined' && CombatManager.currentCombat) {
-            // Pause combat if active
+            CombatManager.pauseCombat();
         }
     }
 
@@ -605,83 +574,6 @@ class ApplicationManager {
                 console.error('Failed to save after error:', saveError);
             }
         }
-    }
-
-    /**
-     * Show help screen
-     */
-    showHelp() {
-        const helpContent = `
-            <div class="help-screen">
-                <h2>🎮 Controls & Help</h2>
-                <div class="help-section">
-                    <h3>Keyboard Shortcuts:</h3>
-                    <ul>
-                        <li><strong>T</strong> - Train Party</li>
-                        <li><strong>E</strong> - Explore Dungeon</li>
-                        <li><strong>R</strong> - Rest & Recover</li>
-                        <li><strong>B</strong> - Buy Equipment</li>
-                        <li><strong>Shift+D</strong> - Attempt Demon Lord</li>
-                        <li><strong>F1</strong> - Show Help</li>
-                        <li><strong>Esc</strong> - Game Menu</li>
-                    </ul>
-                </div>
-                <div class="help-section">
-                    <h3>Game Objective:</h3>
-                    <p>Build and train a party of 4 adventurers to defeat the Demon Lord within 20 turns.</p>
-                </div>
-                <button class="btn" onclick="this.parentElement.remove()">Close</button>
-            </div>
-        `;
-        
-        const overlay = document.createElement('div');
-        overlay.style.cssText = `
-            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-            background: rgba(0,0,0,0.8); display: flex; align-items: center;
-            justify-content: center; z-index: 10000;
-        `;
-        overlay.innerHTML = helpContent;
-        document.body.appendChild(overlay);
-        
-        overlay.addEventListener('click', (e) => {
-            if (e.target === overlay) {
-                overlay.remove();
-            }
-        });
-    }
-
-    /**
-     * Show game menu
-     */
-    showGameMenu() {
-        const menuContent = `
-            <div class="game-menu">
-                <h2>⚙️ Game Menu</h2>
-                <button class="btn" onclick="gameState.save(); UIManager.showMessage('Game Saved!', 'success')">💾 Save Game</button>
-                <button class="btn" onclick="if(confirm('Load saved game?')) { gameState.load(); location.reload(); }">📂 Load Game</button>
-                <button class="btn" onclick="app.showSettings()">⚙️ Settings</button>
-                <button class="btn" onclick="app.showHelp()">❓ Help</button>
-                <button class="btn btn-danger" onclick="if(confirm('Start new game? Current progress will be lost.')) { GameManager.newRun(); }">🆕 New Game</button>
-                <button class="btn" onclick="this.parentElement.parentElement.remove()">❌ Close</button>
-            </div>
-        `;
-        
-        const overlay = document.createElement('div');
-        overlay.style.cssText = `
-            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-            background: rgba(0,0,0,0.8); display: flex; align-items: center;
-            justify-content: center; z-index: 10000;
-        `;
-        overlay.innerHTML = menuContent;
-        document.body.appendChild(overlay);
-    }
-
-    /**
-     * Show settings screen
-     */
-    showSettings() {
-        // Implementation for settings screen
-        console.log('Settings screen - TODO: Implement');
     }
 
     /**
