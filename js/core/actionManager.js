@@ -165,30 +165,11 @@ class ActionManager {
             };
         }
 
+
         // Check turn availability
         if (costs.turns && gameState.turnsLeft < costs.turns) {
             return { 
                 valid: false, 
-                reason: `Not enough turns remaining (need ${costs.turns})` 
-            };
-        }
-
-        // Check level requirements
-        if (costs.minimumLevel && consciousMembers.length > 0) {
-            const hasLeveledMember = consciousMembers.some(char => 
-                char.level >= costs.minimumLevel
-            );
-            if (!hasLeveledMember) {
-                return { 
-                    valid: false, 
-                    reason: `Need at least one party member at level ${costs.minimumLevel}` 
-                };
-            }
-        }
-
-        console.log(`Action ${actionType} validation passed`);
-        return { valid: true };
-    }
                 reason: `Not enough turns remaining (need ${costs.turns})` 
             };
         }
