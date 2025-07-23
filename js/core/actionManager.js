@@ -404,7 +404,7 @@ class ActionManager {
     }
 
     /**
-     * Show dungeon selection screen
+     * Show dungeon selection screen with advanced exploration features
      */
     static showDungeonSelection() {
         if (!gameState.party || gameState.party.length === 0) {
@@ -425,7 +425,7 @@ class ActionManager {
     }
 
     /**
-     * Create dungeon selection content with stats and risk assessment
+     * Create enhanced dungeon selection content with advanced exploration info
      */
     static createDungeonSelectionContent() {
         const partyRating = Helpers.Game.calculatePartyRating(gameState.party);
@@ -439,6 +439,19 @@ class ActionManager {
                     <p><strong>Conscious Members:</strong> ${gameState.party.filter(char => char.isAlive()).length}/4</p>
                 </div>
                 
+                <div style="background: rgba(50, 130, 184, 0.2); padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #3282b8;">
+                    <h4 style="margin-top: 0; color: #bbe1fa;">🆕 Advanced Dungeon Exploration</h4>
+                    <p style="margin-bottom: 0;">Experience full dungeon simulation with:</p>
+                    <ul style="margin: 10px 0; padding-left: 20px;">
+                        <li>🗺️ Multiple interconnected rooms to explore</li>
+                        <li>💰 Treasure chests, traps, and puzzles</li>
+                        <li>⚔️ Strategic combat encounters</li>
+                        <li>🛏️ Rest areas and special events</li>
+                        <li>🏃 Ability to retreat and keep progress</li>
+                        <li>🤖 Optional auto-exploration mode</li>
+                    </ul>
+                </div>
+                
                 <div class="dungeons-grid" style="display: grid; gap: 15px;">
         `;
 
@@ -447,7 +460,7 @@ class ActionManager {
             const isUnlocked = gameState.unlockedDungeons.includes(dungeonId);
             const isDemonLord = dungeonId === 'demon_lords_dungeon';
             
-            content += this.createDungeonCard(dungeonId, dungeonData, riskAssessment, isUnlocked, isDemonLord);
+            content += this.createAdvancedDungeonCard(dungeonId, dungeonData, riskAssessment, isUnlocked, isDemonLord);
         });
 
         content += `
@@ -469,9 +482,9 @@ class ActionManager {
     }
 
     /**
-     * Create individual dungeon card
+     * Create enhanced dungeon card with advanced exploration features
      */
-    static createDungeonCard(dungeonId, dungeonData, riskAssessment, isUnlocked, isDemonLord) {
+    static createAdvancedDungeonCard(dungeonId, dungeonData, riskAssessment, isUnlocked, isDemonLord) {
         const riskColor = this.getRiskColor(riskAssessment.successChance);
         const riskIcon = this.getRiskIcon(riskAssessment.successChance);
         const canExplore = isUnlocked || riskAssessment.gamblingAllowed;
@@ -484,6 +497,9 @@ class ActionManager {
         } else {
             statusText = '<span style="color: #51cf66;">✅ UNLOCKED</span>';
         }
+
+        // Estimate room count for this dungeon
+        const estimatedRooms = Math.max(5, Math.min(12, 5 + dungeonData.difficulty * 2));
 
         return `
             <div class="dungeon-card" style="
@@ -507,6 +523,16 @@ class ActionManager {
 
                 <p style="margin-bottom: 15px; font-style: italic; color: #ccc;">${dungeonData.description}</p>
 
+                <div style="background: rgba(50, 130, 184, 0.1); padding: 10px; border-radius: 4px; margin-bottom: 15px; border-left: 3px solid #3282b8;">
+                    <strong>🏰 Advanced Exploration Features:</strong><br>
+                    <small>
+                        📍 ~${estimatedRooms} rooms to explore • 
+                        💰 Multiple treasure opportunities • 
+                        🧩 Puzzles & special events • 
+                        🏃 Strategic retreat option
+                    </small>
+                </div>
+
                 <div class="dungeon-stats" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
                     <div class="difficulty-info">
                         <h4 style="margin-bottom: 8px; color: #bbe1fa;">Difficulty & Requirements</h4>
@@ -518,10 +544,10 @@ class ActionManager {
 
                     <div class="rewards-info">
                         <h4 style="margin-bottom: 8px; color: #bbe1fa;">Potential Rewards</h4>
-                        <p><strong>Gold:</strong> ${dungeonData.goldReward[0]}-${dungeonData.goldReward[1]}</p>
-                        <p><strong>Materials:</strong> ${dungeonData.materialReward[0]}-${dungeonData.materialReward[1]}</p>
-                        <p><strong>Experience:</strong> ${Math.round(dungeonData.experienceMultiplier * 100)}</p>
-                        ${dungeonData.completionRewards?.firstTime?.skillBook ? '<p><strong>Bonus:</strong> Skill Book!</p>' : ''}
+                        <p><strong>Gold per Room:</strong> ${Math.floor(dungeonData.goldReward[0]/3)}-${Math.floor(dungeonData.goldReward[1]/2)}</p>
+                        <p><strong>Materials per Room:</strong> ${Math.floor(dungeonData.materialReward[0]/3)}-${Math.floor(dungeonData.materialReward[1]/2)}</p>
+                        <p><strong>Boss Bonus:</strong> 2x rewards</p>
+                        ${dungeonData.completionRewards?.firstTime?.skillBook ? '<p><strong>Special:</strong> Skill Books!</p>' : ''}
                     </div>
                 </div>
 
@@ -619,7 +645,7 @@ class ActionManager {
     }
 
     /**
-     * Handle dungeon selection
+     * Handle dungeon selection with advanced exploration
      */
     static selectDungeon(dungeonId) {
         const dungeonData = DUNGEONS_DATA[dungeonId];
@@ -631,19 +657,19 @@ class ActionManager {
         const modal = document.querySelector('.modal-overlay');
         if (modal) modal.remove();
         
-        // Show confirmation for risky dungeons
+        // Show confirmation for risky dungeons or start directly
         if (!isUnlocked || riskAssessment.successChance < 60) {
-            this.confirmRiskyDungeon(dungeonId, dungeonData, riskAssessment, isUnlocked);
+            this.confirmRiskyDungeonAdvanced(dungeonId, dungeonData, riskAssessment, isUnlocked);
         } else {
-            // Safe dungeon, proceed directly
-            this.executeDungeonExploration(dungeonId);
+            // Safe dungeon, proceed with advanced exploration
+            this.startAdvancedExploration(dungeonId);
         }
     }
 
     /**
-     * Confirm risky dungeon exploration
+     * Enhanced risky dungeon confirmation
      */
-    static confirmRiskyDungeon(dungeonId, dungeonData, riskAssessment, isUnlocked) {
+    static confirmRiskyDungeonAdvanced(dungeonId, dungeonData, riskAssessment, isUnlocked) {
         let warningMessage = `
             <div class="risk-confirmation">
                 <h3 style="color: ${this.getRiskColor(riskAssessment.successChance)};">
@@ -655,7 +681,7 @@ class ActionManager {
             warningMessage += `
                 <div style="background: rgba(255, 107, 107, 0.2); padding: 15px; border-radius: 8px; margin: 15px 0;">
                     <strong>🔒 LOCKED DUNGEON</strong><br>
-                    This dungeon is not unlocked yet. You can still attempt it, but at greatly increased risk!
+                    This dungeon is not unlocked yet. You can still attempt it, but with increased risk!
                 </div>
             `;
         }
@@ -669,75 +695,87 @@ class ActionManager {
                         ${riskAssessment.deathRisk > 0 ? `<p><strong>Death Risk:</strong> <span style="color: #ff6b6b;">${riskAssessment.deathRisk}%</span></p>` : ''}
                     </div>
                     <div>
-                        <h4>Potential Rewards:</h4>
-                        <p><strong>Gold:</strong> ${dungeonData.goldReward[0]}-${dungeonData.goldReward[1]}</p>
-                        <p><strong>Materials:</strong> ${dungeonData.materialReward[0]}-${dungeonData.materialReward[1]}</p>
-                        <p><strong>Experience:</strong> ${Math.round(dungeonData.experienceMultiplier * 100)}</p>
+                        <h4>Exploration Features:</h4>
+                        <p>✨ <strong>Full dungeon simulation</strong></p>
+                        <p>🗺️ <strong>Room-by-room exploration</strong></p>
+                        <p>💰 <strong>Multiple treasure opportunities</strong></p>
+                        <p>🎯 <strong>Strategic choices & puzzles</strong></p>
+                        <p>🏃 <strong>Retreat option available</strong></p>
                     </div>
                 </div>
                 
+                <div style="background: rgba(50, 130, 184, 0.2); padding: 10px; border-radius: 4px; margin: 15px 0;">
+                    <strong>💡 New Feature:</strong> Experience full dungeon exploration with multiple rooms, 
+                    treasure chests, traps, puzzles, and strategic decisions!
+                </div>
+                
                 <p style="text-align: center; margin-top: 20px; font-weight: bold;">
-                    Are you sure you want to risk your party in this ${riskAssessment.riskLevel.toLowerCase()} dungeon?
+                    Ready to explore this ${riskAssessment.riskLevel.toLowerCase()} dungeon?
                 </p>
             </div>
         `;
         
         const actions = `
-            <button class="btn btn-danger" onclick="ActionManager.executeDungeonExploration('${dungeonId}'); this.closest('.modal-overlay').remove();">
-                💀 Take the Risk!
+            <button class="btn btn-success" onclick="ActionManager.startAdvancedExploration('${dungeonId}'); this.closest('.modal-overlay').remove();">
+                🏰 Start Exploration!
             </button>
             <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove();">
-                🛡️ Play it Safe
+                🛡️ Maybe Later
             </button>
         `;
         
-        const confirmModal = UIManager.createModal('⚠️ Dangerous Expedition', warningMessage, actions);
+        const confirmModal = UIManager.createModal('🏰 Advanced Dungeon Exploration', warningMessage, actions);
         document.body.appendChild(confirmModal);
         setTimeout(() => confirmModal.classList.add('show'), 10);
     }
 
     /**
-     * Execute the actual dungeon exploration (called from dungeon selection UI)
+     * Start advanced exploration with validation and cost deduction
      */
-    static async executeDungeonExploration(dungeonId) {
-        // Validate basic requirements (not unlock status)
-        const basicValidation = this.validateBasicExplorationRequirements();
-        if (!basicValidation.valid) {
-            UIManager.showMessage(basicValidation.reason, 'error');
-            return false;
-        }
-
-        // Deduct costs manually since we're bypassing executeAction
-        const costs = this.instance.actionCosts.exploreDungeon;
-        if (!gameState.spendResources(costs)) {
-            UIManager.showMessage('Cannot afford dungeon exploration', 'error');
-            return false;
-        }
-
-        if (costs.turns) {
-            gameState.advanceTurn(costs.turns);
-        }
-
+    static async startAdvancedExploration(dungeonId) {
         try {
-            const result = await this.executeExploreDungeon({ dungeonType: dungeonId });
+            // Validate basic requirements
+            const basicValidation = this.validateBasicExplorationRequirements();
+            if (!basicValidation.valid) {
+                UIManager.showMessage(basicValidation.reason, 'error');
+                return false;
+            }
+
+            // Deduct costs
+            const costs = this.instance.actionCosts.exploreDungeon;
+            if (!gameState.spendResources(costs)) {
+                UIManager.showMessage('Cannot afford dungeon exploration', 'error');
+                return false;
+            }
+
+            if (costs.turns) {
+                gameState.advanceTurn(costs.turns);
+            }
+
+            // Start advanced exploration
+            const result = await this.executeExploreDungeonAdvanced({ dungeonType: dungeonId });
             
             // Record action in history
-            this.recordAction('exploreDungeon', { dungeonType: dungeonId }, result, 0);
+            this.recordAction('exploreDungeon', { dungeonType: dungeonId, advanced: true }, result, 0);
 
             // Trigger callbacks
             this.triggerActionEvent('actionCompleted', { 
                 action: 'exploreDungeon', 
-                options: { dungeonType: dungeonId }, 
+                options: { dungeonType: dungeonId, advanced: true }, 
                 result
             });
+
+            // Show completion message
+            this.handleAdvancedExplorationResult(result, dungeonId);
 
             return result;
 
         } catch (error) {
-            console.error(`Dungeon exploration failed:`, error);
+            console.error(`Advanced dungeon exploration failed:`, error);
             UIManager.showMessage(`Exploration failed: ${error.message}`, 'error');
 
             // Refund resources on failure
+            const costs = this.instance.actionCosts.exploreDungeon;
             Object.entries(costs).forEach(([resource, amount]) => {
                 if (typeof amount === 'number' && gameState.resources.hasOwnProperty(resource)) {
                     gameState.addResource(resource, amount);
@@ -746,6 +784,131 @@ class ActionManager {
 
             return false;
         }
+    }
+
+    /**
+     * Enhanced dungeon exploration with full simulation
+     */
+    static async executeExploreDungeonAdvanced(options = {}) {
+        const dungeonType = options.dungeonType;
+        
+        if (!dungeonType) {
+            throw new Error('No dungeon specified for exploration');
+        }
+        
+        if (!DUNGEONS_DATA[dungeonType]) {
+            throw new Error(`Unknown dungeon: ${dungeonType}`);
+        }
+
+        // Validate party readiness
+        const party = gameState.party.filter(char => char.isAlive());
+        if (party.length === 0) {
+            throw new Error('Need at least one conscious party member');
+        }
+
+        // Calculate difficulty based on party strength
+        const partyRating = Helpers.Game.calculatePartyRating(party);
+        const baseDifficulty = DUNGEONS_DATA[dungeonType].difficulty || 1;
+        const adjustedDifficulty = Math.max(1, Math.floor(baseDifficulty * (partyRating / 500)));
+
+        console.log(`🏰 Starting advanced dungeon exploration: ${dungeonType} (difficulty: ${adjustedDifficulty})`);
+
+        // Start the dungeon exploration UI
+        return new Promise((resolve) => {
+            // Set up completion callback
+            const originalCloseExploration = DungeonUI.closeExploration;
+            let callbackTriggered = false;
+
+            DungeonUI.closeExploration = function() {
+                if (!callbackTriggered) {
+                    callbackTriggered = true;
+                    
+                    // Restore original method
+                    DungeonUI.closeExploration = originalCloseExploration;
+                    
+                    // Get exploration results
+                    const exploration = DungeonUI.currentExploration;
+                    if (exploration) {
+                        const summary = exploration.getExplorationSummary();
+                        const progress = exploration.dungeon.getProgress();
+                        
+                        resolve({
+                            success: progress.bossDefeated || progress.completionProgress > 0.5,
+                            dungeonCompleted: progress.bossDefeated,
+                            retreated: exploration.state === 'retreated',
+                            summary: summary,
+                            lootGained: summary.totalLoot,
+                            enemiesDefeated: summary.enemiesDefeated,
+                            roomsCompleted: progress.roomsCompleted,
+                            totalRooms: progress.totalRooms
+                        });
+                    } else {
+                        resolve({
+                            success: false,
+                            reason: 'exploration_cancelled'
+                        });
+                    }
+                    
+                    // Call original close method
+                    originalCloseExploration.call(this);
+                }
+            };
+
+            // Start the exploration
+            const success = DungeonUI.startExploration(dungeonType, party, adjustedDifficulty);
+            
+            if (!success) {
+                // Restore original method if start failed
+                DungeonUI.closeExploration = originalCloseExploration;
+                resolve({
+                    success: false,
+                    reason: 'failed_to_start_exploration'
+                });
+            }
+        });
+    }
+
+    /**
+     * Handle advanced exploration result
+     */
+    static handleAdvancedExplorationResult(result, dungeonId) {
+        const dungeonName = DUNGEONS_DATA[dungeonId]?.name || dungeonId;
+        
+        if (result.dungeonCompleted) {
+            // Complete victory
+            const message = `🏆 ${dungeonName} completed! Defeated boss and cleared ${result.roomsCompleted} rooms. ` +
+                           `Gained ${result.lootGained.gold || 0} gold and ${result.lootGained.materials || 0} materials.`;
+            
+            UIManager.showResults(message, 'victory');
+            
+            // Mark as completed for unlock progression
+            gameState.completeDungeon(dungeonId, 1, true);
+            
+        } else if (result.retreated) {
+            // Strategic retreat
+            const message = `🏃 Retreated from ${dungeonName} after clearing ${result.roomsCompleted}/${result.totalRooms} rooms. ` +
+                           `Kept ${result.lootGained.gold || 0} gold and ${result.lootGained.materials || 0} materials.`;
+            
+            UIManager.showResults(message, 'warning');
+            
+        } else if (result.success) {
+            // Partial success
+            const message = `⚔️ Explored ${dungeonName} - cleared ${result.roomsCompleted} rooms and defeated ${result.enemiesDefeated} enemies. ` +
+                           `Gained ${result.lootGained.gold || 0} gold and ${result.lootGained.materials || 0} materials.`;
+            
+            UIManager.showResults(message, 'victory');
+            
+        } else {
+            // Failure
+            const message = `💀 Failed to explore ${dungeonName}. ${result.reason || 'Party was defeated.'} ` +
+                           `Consider training and better preparation.`;
+            
+            UIManager.showResults(message, 'defeat');
+        }
+
+        // Update displays
+        UIManager.updateResourceDisplay();
+        UIManager.renderPartyDisplay();
     }
 
     /**
@@ -774,7 +937,7 @@ class ActionManager {
     }
 
     /**
-     * Execute dungeon exploration (called after dungeon selection)
+     * Execute dungeon exploration (legacy method for compatibility)
      */
     static async executeExploreDungeon(options = {}) {
         const dungeonType = options.dungeonType;
@@ -789,45 +952,8 @@ class ActionManager {
             throw new Error(`Unknown dungeon: ${dungeonType}`);
         }
 
-        // Pre-exploration preparations
-        this.preparePartyForExploration();
-
-        // Generate enemy for this exploration
-        const enemy = this.generateDungeonEnemy(dungeonData, options);
-        
-        // Apply dungeon-specific modifiers
-        const environmentalEffects = this.getDungeonEnvironmentalEffects(dungeonType);
-        
-        // Start combat encounter
-        const combatOptions = {
-            environmentalEffects,
-            difficulty: dungeonData.difficulty
-        };
-
-        return new Promise((resolve) => {
-            // Set up combat completion callback
-            const originalEndCombat = CombatManager.endCombat;
-            CombatManager.endCombat = function(victory, reason) {
-                // Call original end combat
-                originalEndCombat.call(this, victory, reason);
-                
-                // Restore original method
-                CombatManager.endCombat = originalEndCombat;
-                
-                // Resolve the exploration
-                resolve({
-                    success: victory,
-                    dungeon: dungeonType,
-                    enemy: enemy.name,
-                    reason
-                });
-            };
-
-            // Start the combat
-            if (!CombatManager.startCombat(enemy, dungeonType, combatOptions)) {
-                resolve({ success: false, reason: 'Failed to start combat' });
-            }
-        });
+        // Use advanced exploration by default
+        return await this.executeExploreDungeonAdvanced(options);
     }
 
     /**
@@ -949,143 +1075,13 @@ class ActionManager {
             throw new Error(readinessCheck.reason);
         }
 
-        // Create the ultimate enemy
-        const demonLord = this.createDemonLordEnemy();
-        
-        // Apply final battle environmental effects
-        const environmentalEffects = [
-            { type: 'hellfire_traps', chance: 40 },
-            { type: 'soul_draining_aura', chance: 30 },
-            { type: 'reality_corruption', chance: 20 }
-        ];
-
-        // Start the final combat
-        return new Promise((resolve) => {
-            const originalEndCombat = CombatManager.endCombat;
-            CombatManager.endCombat = function(victory, reason) {
-                originalEndCombat.call(this, victory, reason);
-                CombatManager.endCombat = originalEndCombat;
-                
-                if (victory) {
-                    // Handle ultimate victory
-                    gameState.statistics.victoriesAgainstDemonLord++;
-                    gameState.addAchievement('DEMON_SLAYER');
-                }
-                
-                resolve({
-                    success: victory,
-                    ultimateVictory: victory,
-                    reason
-                });
-            };
-
-            if (!CombatManager.startCombat(demonLord, 'demon_lords_dungeon', { 
-                environmentalEffects,
-                difficulty: 10 
-            })) {
-                resolve({ success: false, reason: 'Failed to start final combat' });
-            }
-        });
+        // Use advanced exploration for demon lord dungeon
+        return await this.executeExploreDungeonAdvanced({ dungeonType: 'demon_lords_dungeon' });
     }
 
     /**
      * Helper Methods
      */
-
-    /**
-     * Prepare party for dungeon exploration
-     */
-    static preparePartyForExploration() {
-        gameState.party.forEach(character => {
-            // Reset any temporary states
-            character.actionThisTurn = false;
-            
-            // Apply pre-exploration buffs based on character archetype
-            if (character.archetype === 'Ranger' && character.hasStatusEffect) {
-                // Rangers get nature bonus in dungeons
-                character.addStatusEffect({
-                    type: 'nature_awareness',
-                    duration: -1, // Lasts entire exploration
-                    source: 'exploration_prep'
-                });
-            }
-        });
-    }
-
-    /**
-     * Generate enemy for dungeon
-     */
-    static generateDungeonEnemy(dungeonData, options = {}) {
-        const possibleEnemies = dungeonData.possibleEnemies || ['training_dummy'];
-        const chosenEnemyType = options.enemyType || Helpers.Array.randomElement(possibleEnemies);
-        
-        let enemy = ENEMIES_DATA[chosenEnemyType];
-        if (!enemy) {
-            // Fallback to basic enemy
-            enemy = {
-                name: 'Unknown Creature',
-                type: 'beast',
-                hp: 80,
-                maxHP: 80,
-                attackPower: 20,
-                defense: 5,
-                speed: 5,
-                abilities: [],
-                resistances: [],
-                weaknesses: [],
-                difficulty: dungeonData.difficulty || 1
-            };
-        }
-
-        // Scale enemy based on party strength and dungeon difficulty
-        const scaledEnemy = this.scaleEnemyToDungeon(Helpers.Object.deepClone(enemy), dungeonData);
-        return scaledEnemy;
-    }
-
-    /**
-     * Scale enemy difficulty based on party and dungeon
-     */
-    static scaleEnemyToDungeon(enemy, dungeonData) {
-        const partyRating = Helpers.Game.calculatePartyRating(gameState.party);
-        const baseScaling = dungeonData.difficulty || 1;
-        const dynamicScaling = Math.max(1, partyRating / 400); // Scale with party strength
-        
-        const totalScaling = baseScaling * dynamicScaling * 0.8; // Slight reduction for balance
-        
-        enemy.hp = Math.floor(enemy.hp * totalScaling);
-        enemy.maxHP = enemy.hp;
-        enemy.attackPower = Math.floor(enemy.attackPower * totalScaling);
-        enemy.defense = Math.floor(enemy.defense * Math.sqrt(totalScaling));
-        
-        return enemy;
-    }
-
-    /**
-     * Get environmental effects for dungeon type
-     */
-    static getDungeonEnvironmentalEffects(dungeonType) {
-        const effects = {
-            training_grounds: [],
-            crystal_caverns: [
-                { type: 'crystal_resonance', chance: 20 },
-                { type: 'unstable_crystals', chance: 15 }
-            ],
-            ancient_library: [
-                { type: 'knowledge_overload', chance: 25 },
-                { type: 'cursed_tomes', chance: 20 }
-            ],
-            shadow_fortress: [
-                { type: 'shadow_drain', chance: 30 },
-                { type: 'fear_inducing_darkness', chance: 25 }
-            ],
-            elemental_planes: [
-                { type: 'elemental_chaos', chance: 35 },
-                { type: 'reality_fluctuation', chance: 20 }
-            ]
-        };
-        
-        return effects[dungeonType] || [];
-    }
 
     /**
      * Get rest effectiveness based on rest type
@@ -1257,40 +1253,6 @@ class ActionManager {
     }
 
     /**
-     * Create the Demon Lord enemy
-     */
-    static createDemonLordEnemy() {
-        const baseDemonLord = ENEMIES_DATA.demon_lord_malphas;
-        if (!baseDemonLord) {
-            // Fallback if enemy data not found
-            return {
-                name: 'Demon Lord Malphas',
-                type: 'fiend_lord',
-                hp: 800,
-                maxHP: 800,
-                attackPower: 80,
-                defense: 30,
-                speed: 10,
-                abilities: ['hellfire', 'reality_rend', 'soul_steal'],
-                resistances: ['fire', 'dark', 'physical'],
-                weaknesses: ['holy'],
-                difficulty: 10
-            };
-        }
-        
-        // Scale based on party strength for final challenge
-        const partyRating = Helpers.Game.calculatePartyRating(gameState.party);
-        const scaling = Math.max(1.0, partyRating / 1000);
-        
-        const demonLord = Helpers.Object.deepClone(baseDemonLord);
-        demonLord.hp = Math.floor(demonLord.hp * scaling);
-        demonLord.maxHP = demonLord.hp;
-        demonLord.attackPower = Math.floor(demonLord.attackPower * scaling);
-        
-        return demonLord;
-    }
-
-    /**
      * Summarize training results for display
      */
     static summarizeTrainingResults(results) {
@@ -1447,10 +1409,10 @@ class ActionManager {
 
     static exploreDungeon(dungeonType = null) {
         if (dungeonType) {
-            // Direct dungeon selection (for programmatic calls)
-            return this.executeAction('exploreDungeon', { dungeonType });
+            // Direct dungeon selection with advanced exploration
+            return this.executeExploreDungeonAdvanced({ dungeonType });
         } else {
-            // Show dungeon selection UI
+            // Show enhanced dungeon selection UI
             this.showDungeonSelection();
         }
     }
