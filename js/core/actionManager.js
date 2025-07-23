@@ -195,6 +195,11 @@ class ActionManager {
      * Execute action with validation and resource management
      */
     static async executeAction(actionType, options = {}) {
+        // Special handling for exploreDungeon - it now requires a specific dungeon
+        if (actionType === 'exploreDungeon' && !options.dungeonType) {
+            throw new Error('Dungeon exploration requires specific dungeon selection');
+        }
+
         // Validate prerequisites
         const validation = this.validateAction(actionType, options);
         if (!validation.valid) {
@@ -380,7 +385,7 @@ class ActionManager {
             }
         }
 
-        let message = `${character.name} improved ${StringUtils.camelToTitle(stat)} by ${improvement}!`;
+        let message = `${character.name} improved ${Helpers.String.camelToTitle(stat)} by ${improvement}!`;
         if (skillLearned) {
             message += ` Also learned ${skillLearned}!`;
         }
@@ -399,18 +404,389 @@ class ActionManager {
     }
 
     /**
-     * Explore a dungeon
+     * Show dungeon selection screen
+     */
+    static showDungeonSelection() {
+        if (!gameState.party || gameState.party.length === 0) {
+            UIManager.showMessage('Need a party to explore dungeons!', 'error');
+            return;
+        }
+
+        const dungeonSelectionContent = this.createDungeonSelectionContent();
+        
+        const modal = UIManager.createModal(
+            '🗡️ Select Dungeon to Explore', 
+            dungeonSelectionContent,
+            '<button class="btn btn-secondary" onclick="this.closest(\'.modal-overlay\').remove()">Cancel</button>'
+        );
+        
+        document.body.appendChild(modal);
+        setTimeout(() => modal.classList.add('show'), 10);
+    }
+
+    /**
+     * Create dungeon selection content with stats and risk assessment
+     */
+    static createDungeonSelectionContent() {
+        const partyRating = Helpers.Game.calculatePartyRating(gameState.party);
+        
+        let content = `
+            <div class="dungeon-selection">
+                <div class="party-info" style="margin-bottom: 20px; padding: 15px; background: rgba(0,0,0,0.3); border-radius: 8px;">
+                    <h4>Current Party Status</h4>
+                    <p><strong>Combat Rating:</strong> ${partyRating}</p>
+                    <p><strong>Average Health:</strong> ${Math.round(gameState.party.reduce((sum, char) => sum + (char.getHealthPercentage ? char.getHealthPercentage() : 100), 0) / gameState.party.length)}%</p>
+                    <p><strong>Conscious Members:</strong> ${gameState.party.filter(char => char.isAlive()).length}/4</p>
+                </div>
+                
+                <div class="dungeons-grid" style="display: grid; gap: 15px;">
+        `;
+
+        Object.entries(DUNGEONS_DATA).forEach(([dungeonId, dungeonData]) => {
+            const riskAssessment = this.calculateDungeonRisk(dungeonId, partyRating);
+            const isUnlocked = gameState.unlockedDungeons.includes(dungeonId);
+            const isDemonLord = dungeonId === 'demon_lords_dungeon';
+            
+            content += this.createDungeonCard(dungeonId, dungeonData, riskAssessment, isUnlocked, isDemonLord);
+        });
+
+        content += `
+                </div>
+                <div class="risk-legend" style="margin-top: 20px; padding: 15px; background: rgba(0,0,0,0.2); border-radius: 8px;">
+                    <h4>Risk Levels:</h4>
+                    <div style="display: flex; gap: 15px; flex-wrap: wrap; margin-top: 10px;">
+                        <span style="color: #51cf66;">🟢 <strong>Safe:</strong> 90%+ success chance</span>
+                        <span style="color: #ffd43b;">🟡 <strong>Moderate:</strong> 60-89% success chance</span>
+                        <span style="color: #ff922b;">🟠 <strong>Risky:</strong> 30-59% success chance</span>
+                        <span style="color: #ff6b6b;">🔴 <strong>Dangerous:</strong> 10-29% success chance</span>
+                        <span style="color: #9775fa;">💀 <strong>Suicidal:</strong> <10% success chance</span>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        return content;
+    }
+
+    /**
+     * Create individual dungeon card
+     */
+    static createDungeonCard(dungeonId, dungeonData, riskAssessment, isUnlocked, isDemonLord) {
+        const riskColor = this.getRiskColor(riskAssessment.successChance);
+        const riskIcon = this.getRiskIcon(riskAssessment.successChance);
+        const canExplore = isUnlocked || riskAssessment.gamblingAllowed;
+        
+        let statusText = '';
+        if (!isUnlocked && !isDemonLord) {
+            statusText = '<span style="color: #ff6b6b;">🔒 LOCKED</span>';
+        } else if (isDemonLord) {
+            statusText = '<span style="color: #9775fa;">👹 FINAL BATTLE</span>';
+        } else {
+            statusText = '<span style="color: #51cf66;">✅ UNLOCKED</span>';
+        }
+
+        return `
+            <div class="dungeon-card" style="
+                border: 2px solid ${riskColor}; 
+                border-radius: 8px; 
+                padding: 15px; 
+                background: rgba(0,0,0,0.4);
+                ${!canExplore ? 'opacity: 0.6;' : 'cursor: pointer;'}
+                transition: all 0.3s ease;
+            " ${canExplore ? `onclick="ActionManager.selectDungeon('${dungeonId}')"` : ''}>
+                
+                <div class="dungeon-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <h3 style="margin: 0;">${dungeonData.name}</h3>
+                    <div style="text-align: right;">
+                        ${statusText}
+                        <div style="color: ${riskColor}; font-weight: bold; margin-top: 5px;">
+                            ${riskIcon} ${riskAssessment.riskLevel}
+                        </div>
+                    </div>
+                </div>
+
+                <p style="margin-bottom: 15px; font-style: italic; color: #ccc;">${dungeonData.description}</p>
+
+                <div class="dungeon-stats" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div class="difficulty-info">
+                        <h4 style="margin-bottom: 8px; color: #bbe1fa;">Difficulty & Requirements</h4>
+                        <p><strong>Difficulty:</strong> ${dungeonData.difficulty}/10</p>
+                        <p><strong>Recommended Level:</strong> ${dungeonData.minLevel}-${dungeonData.maxLevel}</p>
+                        <p><strong>Turn Cost:</strong> ${dungeonData.turnCost}</p>
+                        <p><strong>Success Chance:</strong> <span style="color: ${riskColor};">${Math.round(riskAssessment.successChance)}%</span></p>
+                    </div>
+
+                    <div class="rewards-info">
+                        <h4 style="margin-bottom: 8px; color: #bbe1fa;">Potential Rewards</h4>
+                        <p><strong>Gold:</strong> ${dungeonData.goldReward[0]}-${dungeonData.goldReward[1]}</p>
+                        <p><strong>Materials:</strong> ${dungeonData.materialReward[0]}-${dungeonData.materialReward[1]}</p>
+                        <p><strong>Experience:</strong> ${Math.round(dungeonData.experienceMultiplier * 100)}</p>
+                        ${dungeonData.completionRewards?.firstTime?.skillBook ? '<p><strong>Bonus:</strong> Skill Book!</p>' : ''}
+                    </div>
+                </div>
+
+                ${riskAssessment.injuryRisk > 30 ? `
+                    <div class="warning" style="margin-top: 15px; padding: 10px; background: rgba(255, 107, 107, 0.2); border-left: 4px solid #ff6b6b; border-radius: 4px;">
+                        <strong>⚠️ Warning:</strong> ${Math.round(riskAssessment.injuryRisk)}% chance of serious injuries!
+                        ${riskAssessment.deathRisk > 10 ? `<br><strong>💀 Death Risk:</strong> ${Math.round(riskAssessment.deathRisk)}% chance of party member death!` : ''}
+                    </div>
+                ` : ''}
+
+                ${!isUnlocked && !isDemonLord ? `
+                    <div class="unlock-condition" style="margin-top: 15px; padding: 10px; background: rgba(0, 0, 0, 0.5); border-radius: 4px;">
+                        <small><strong>Unlock Condition:</strong> ${this.getUnlockDescription(dungeonId)}</small>
+                    </div>
+                ` : ''}
+
+            </div>
+        `;
+    }
+
+    /**
+     * Calculate comprehensive dungeon risk assessment
+     */
+    static calculateDungeonRisk(dungeonId, partyRating) {
+        const dungeonData = DUNGEONS_DATA[dungeonId];
+        const baseRequiredRating = dungeonData.difficulty * 200; // Rough estimate
+        const ratingRatio = partyRating / baseRequiredRating;
+        
+        // Calculate success chance
+        let successChance = Math.min(95, Math.max(5, ratingRatio * 60 + 30));
+        
+        // Factor in party health
+        const avgHealth = gameState.party.reduce((sum, char) => 
+            sum + (char.getHealthPercentage ? char.getHealthPercentage() : 100), 0) / gameState.party.length;
+        successChance *= (avgHealth / 100) * 0.8 + 0.2;
+        
+        // Factor in conscious members
+        const consciousMembers = gameState.party.filter(char => char.isAlive()).length;
+        successChance *= (consciousMembers / 4) * 0.7 + 0.3;
+        
+        // Calculate injury and death risks
+        const injuryRisk = Math.max(0, 100 - successChance * 1.2);
+        const deathRisk = Math.max(0, injuryRisk - 40);
+        
+        // Determine risk level
+        let riskLevel;
+        if (successChance >= 90) riskLevel = 'Safe';
+        else if (successChance >= 60) riskLevel = 'Moderate';
+        else if (successChance >= 30) riskLevel = 'Risky';
+        else if (successChance >= 10) riskLevel = 'Dangerous';
+        else riskLevel = 'Suicidal';
+        
+        return {
+            successChance: Math.round(successChance),
+            injuryRisk: Math.round(injuryRisk),
+            deathRisk: Math.round(deathRisk),
+            riskLevel,
+            gamblingAllowed: dungeonId !== 'demon_lords_dungeon' // Can always gamble except final boss
+        };
+    }
+
+    /**
+     * Get risk color based on success chance
+     */
+    static getRiskColor(successChance) {
+        if (successChance >= 90) return '#51cf66';
+        if (successChance >= 60) return '#ffd43b';
+        if (successChance >= 30) return '#ff922b';
+        if (successChance >= 10) return '#ff6b6b';
+        return '#9775fa';
+    }
+
+    /**
+     * Get risk icon based on success chance
+     */
+    static getRiskIcon(successChance) {
+        if (successChance >= 90) return '🟢';
+        if (successChance >= 60) return '🟡';
+        if (successChance >= 30) return '🟠';
+        if (successChance >= 10) return '🔴';
+        return '💀';
+    }
+
+    /**
+     * Get unlock description for locked dungeons
+     */
+    static getUnlockDescription(dungeonId) {
+        const descriptions = {
+            crystal_caverns: 'Complete Training Grounds',
+            ancient_library: 'Complete Crystal Caverns',
+            shadow_fortress: 'Complete Ancient Library',
+            elemental_planes: 'Complete Shadow Fortress'
+        };
+        return descriptions[dungeonId] || 'Complete previous dungeons';
+    }
+
+    /**
+     * Handle dungeon selection
+     */
+    static selectDungeon(dungeonId) {
+        const dungeonData = DUNGEONS_DATA[dungeonId];
+        const isUnlocked = gameState.unlockedDungeons.includes(dungeonId);
+        const partyRating = Helpers.Game.calculatePartyRating(gameState.party);
+        const riskAssessment = this.calculateDungeonRisk(dungeonId, partyRating);
+        
+        // Close the selection modal
+        const modal = document.querySelector('.modal-overlay');
+        if (modal) modal.remove();
+        
+        // Show confirmation for risky dungeons
+        if (!isUnlocked || riskAssessment.successChance < 60) {
+            this.confirmRiskyDungeon(dungeonId, dungeonData, riskAssessment, isUnlocked);
+        } else {
+            // Safe dungeon, proceed directly
+            this.executeDungeonExploration(dungeonId);
+        }
+    }
+
+    /**
+     * Confirm risky dungeon exploration
+     */
+    static confirmRiskyDungeon(dungeonId, dungeonData, riskAssessment, isUnlocked) {
+        let warningMessage = `
+            <div class="risk-confirmation">
+                <h3 style="color: ${this.getRiskColor(riskAssessment.successChance)};">
+                    ${this.getRiskIcon(riskAssessment.successChance)} ${dungeonData.name} - ${riskAssessment.riskLevel} Risk
+                </h3>
+        `;
+        
+        if (!isUnlocked) {
+            warningMessage += `
+                <div style="background: rgba(255, 107, 107, 0.2); padding: 15px; border-radius: 8px; margin: 15px 0;">
+                    <strong>🔒 LOCKED DUNGEON</strong><br>
+                    This dungeon is not unlocked yet. You can still attempt it, but at greatly increased risk!
+                </div>
+            `;
+        }
+        
+        warningMessage += `
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin: 15px 0;">
+                    <div>
+                        <h4>Estimated Outcome:</h4>
+                        <p><strong>Success Chance:</strong> <span style="color: ${this.getRiskColor(riskAssessment.successChance)};">${riskAssessment.successChance}%</span></p>
+                        <p><strong>Injury Risk:</strong> ${riskAssessment.injuryRisk}%</p>
+                        ${riskAssessment.deathRisk > 0 ? `<p><strong>Death Risk:</strong> <span style="color: #ff6b6b;">${riskAssessment.deathRisk}%</span></p>` : ''}
+                    </div>
+                    <div>
+                        <h4>Potential Rewards:</h4>
+                        <p><strong>Gold:</strong> ${dungeonData.goldReward[0]}-${dungeonData.goldReward[1]}</p>
+                        <p><strong>Materials:</strong> ${dungeonData.materialReward[0]}-${dungeonData.materialReward[1]}</p>
+                        <p><strong>Experience:</strong> ${Math.round(dungeonData.experienceMultiplier * 100)}</p>
+                    </div>
+                </div>
+                
+                <p style="text-align: center; margin-top: 20px; font-weight: bold;">
+                    Are you sure you want to risk your party in this ${riskAssessment.riskLevel.toLowerCase()} dungeon?
+                </p>
+            </div>
+        `;
+        
+        const actions = `
+            <button class="btn btn-danger" onclick="ActionManager.executeDungeonExploration('${dungeonId}'); this.closest('.modal-overlay').remove();">
+                💀 Take the Risk!
+            </button>
+            <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove();">
+                🛡️ Play it Safe
+            </button>
+        `;
+        
+        const confirmModal = UIManager.createModal('⚠️ Dangerous Expedition', warningMessage, actions);
+        document.body.appendChild(confirmModal);
+        setTimeout(() => confirmModal.classList.add('show'), 10);
+    }
+
+    /**
+     * Execute the actual dungeon exploration (called from dungeon selection UI)
+     */
+    static async executeDungeonExploration(dungeonId) {
+        // Validate basic requirements (not unlock status)
+        const basicValidation = this.validateBasicExplorationRequirements();
+        if (!basicValidation.valid) {
+            UIManager.showMessage(basicValidation.reason, 'error');
+            return false;
+        }
+
+        // Deduct costs manually since we're bypassing executeAction
+        const costs = this.instance.actionCosts.exploreDungeon;
+        if (!gameState.spendResources(costs)) {
+            UIManager.showMessage('Cannot afford dungeon exploration', 'error');
+            return false;
+        }
+
+        if (costs.turns) {
+            gameState.advanceTurn(costs.turns);
+        }
+
+        try {
+            const result = await this.executeExploreDungeon({ dungeonType: dungeonId });
+            
+            // Record action in history
+            this.recordAction('exploreDungeon', { dungeonType: dungeonId }, result, 0);
+
+            // Trigger callbacks
+            this.triggerActionEvent('actionCompleted', { 
+                action: 'exploreDungeon', 
+                options: { dungeonType: dungeonId }, 
+                result
+            });
+
+            return result;
+
+        } catch (error) {
+            console.error(`Dungeon exploration failed:`, error);
+            UIManager.showMessage(`Exploration failed: ${error.message}`, 'error');
+
+            // Refund resources on failure
+            Object.entries(costs).forEach(([resource, amount]) => {
+                if (typeof amount === 'number' && gameState.resources.hasOwnProperty(resource)) {
+                    gameState.addResource(resource, amount);
+                }
+            });
+
+            return false;
+        }
+    }
+
+    /**
+     * Validate basic exploration requirements (without unlock check)
+     */
+    static validateBasicExplorationRequirements() {
+        if (!gameState.party || gameState.party.length === 0) {
+            return { valid: false, reason: 'Need a party to explore dungeons' };
+        }
+
+        const consciousMembers = gameState.party.filter(char => char.isAlive && char.isAlive());
+        if (consciousMembers.length === 0) {
+            return { valid: false, reason: 'Need at least one conscious party member' };
+        }
+
+        const costs = this.instance.actionCosts.exploreDungeon;
+        if (!gameState.canAfford(costs)) {
+            return { valid: false, reason: 'Cannot afford exploration costs' };
+        }
+
+        if (costs.turns && gameState.turnsLeft < costs.turns) {
+            return { valid: false, reason: 'Not enough turns remaining' };
+        }
+
+        return { valid: true };
+    }
+
+    /**
+     * Execute dungeon exploration (called after dungeon selection)
      */
     static async executeExploreDungeon(options = {}) {
-        const dungeonType = options.dungeonType || this.selectAvailableDungeon();
+        const dungeonType = options.dungeonType;
+        
+        if (!dungeonType) {
+            throw new Error('No dungeon specified for exploration');
+        }
+        
         const dungeonData = DUNGEONS_DATA[dungeonType];
         
         if (!dungeonData) {
             throw new Error(`Unknown dungeon: ${dungeonType}`);
-        }
-
-        if (!gameState.unlockedDungeons.includes(dungeonType)) {
-            throw new Error(`Dungeon ${dungeonType} is not unlocked`);
         }
 
         // Pre-exploration preparations
@@ -505,7 +881,7 @@ class ActionManager {
         
         let message = `${recipient.name} received new ${equipmentType}! `;
         message += Object.entries(improvement)
-            .map(([stat, amount]) => `${StringUtils.camelToTitle(stat)} +${amount}`)
+            .map(([stat, amount]) => `${Helpers.String.camelToTitle(stat)} +${amount}`)
             .join(', ');
 
         if (typeof UIManager !== 'undefined') {
@@ -615,28 +991,6 @@ class ActionManager {
     /**
      * Helper Methods
      */
-
-    /**
-     * Select an available dungeon for exploration
-     */
-    static selectAvailableDungeon() {
-        const available = gameState.unlockedDungeons.filter(dungeon => 
-            dungeon !== 'demon_lords_dungeon'
-        );
-        
-        if (available.length === 0) {
-            return 'training_grounds'; // Fallback
-        }
-        
-        // Weight selection based on party strength and rewards needed
-        const partyRating = Helpers.Game.calculatePartyRating(gameState.party);
-        
-        if (partyRating < 500) return 'training_grounds';
-        if (partyRating < 800) return 'crystal_caverns';
-        if (partyRating < 1200) return 'ancient_library';
-        if (partyRating < 1600) return 'shadow_fortress';
-        return 'elemental_planes';
-    }
 
     /**
      * Prepare party for dungeon exploration
@@ -955,7 +1309,7 @@ class ActionManager {
         
         let summary = 'Total improvements: ';
         summary += Object.entries(totalImprovements)
-            .map(([stat, amount]) => `${StringUtils.camelToTitle(stat)} +${amount}`)
+            .map(([stat, amount]) => `${Helpers.String.camelToTitle(stat)} +${amount}`)
             .join(', ');
             
         if (skillsLearned.length > 0) {
@@ -1092,7 +1446,13 @@ class ActionManager {
     }
 
     static exploreDungeon(dungeonType = null) {
-        return this.executeAction('exploreDungeon', { dungeonType });
+        if (dungeonType) {
+            // Direct dungeon selection (for programmatic calls)
+            return this.executeAction('exploreDungeon', { dungeonType });
+        } else {
+            // Show dungeon selection UI
+            this.showDungeonSelection();
+        }
     }
 
     static rest(restType = 'inn') {
